@@ -15,7 +15,6 @@ A real-time chatbot powered by Gemini AI, designed to provide instant responses 
 
 Clone the repository:
 
-
 git clone https://github.com/senaalanur/real_time_chatbot.git
 
 cd real_time_chatbot
@@ -41,11 +40,9 @@ set GEMINI_API_KEY="your_api_key_here"  # For Windows
 
 
 Run the chatbot:
-
 python chatbox.py 
 
-
-📜 Usage
+📜 Usage:
 
 Start the chatbot by running python chatbox.py.
 
@@ -61,13 +58,10 @@ Python
 Gemini AI API 
 
 
-👨‍💻 Author
-
+👨‍💻 Author:
 Sena Alanur
-
 📌 GitHub: @senaalanur
 
 
-📄 License
-
+📄 License:
 This project is open-source and available under the MIT License.
