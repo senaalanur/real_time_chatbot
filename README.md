@@ -6,7 +6,6 @@ An AI-powered voice chatbot that uses **speech recognition**, **Gemini AI API**,
 
 ### 1. Set your API key
 For **Windows**:
-```powershell
 set GEMINI_API_KEY="your_api_key_here"
 2. Run the chatbot
 
