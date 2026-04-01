@@ -15,7 +15,7 @@ export default function App() {
   const [isOnboarded, setIsOnboarded] = useState(null);
 
   useEffect(() => {
-    AsyncStorage.getItem('echo_user').then(val => {
+    AsyncStorage.getItem('lumaid_user').then(val => {
       setIsOnboarded(!!val);
     });
   }, []);

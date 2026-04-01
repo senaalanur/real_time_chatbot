@@ -2,15 +2,20 @@ import { Lato_400Regular, Lato_700Bold } from '@expo-google-fonts/lato';
 import { PlayfairDisplay_700Bold } from '@expo-google-fonts/playfair-display';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFonts } from 'expo-font';
+import * as Haptics from 'expo-haptics';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-    Animated, Dimensions,
-    Easing,
-    StyleSheet,
-    Text, TouchableOpacity,
-    View
+  Animated,
+  Dimensions,
+  Easing,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  Platform,
 } from 'react-native';
-import { COLORS, MOODS, SOULS } from '../constants';
+import { COLORS, MOODS, QUICK_ACTIONS, SOULS } from '../constants';
 
 const { width } = Dimensions.get('window');
 
@@ -24,6 +29,7 @@ export default function HomeScreen({ navigation }) {
   const orbPulse = useRef(new Animated.Value(1)).current;
   const orbGlow  = useRef(new Animated.Value(0.5)).current;
   const fadeIn   = useRef(new Animated.Value(0)).current;
+  const soulPickerAnim = useRef(new Animated.Value(0)).current;
 
   const [fontsLoaded] = useFonts({
     PlayfairDisplay_700Bold,
@@ -34,13 +40,22 @@ export default function HomeScreen({ navigation }) {
   useEffect(() => {
     loadData();
     startOrbAnimation();
-    Animated.timing(fadeIn, { toValue: 1, duration: 800, useNativeDriver: true }).start();
+    Animated.timing(fadeIn, { toValue: 1, duration: 700, useNativeDriver: true }).start();
   }, []);
 
+  useEffect(() => {
+    Animated.spring(soulPickerAnim, {
+      toValue: showSoulPicker ? 1 : 0,
+      tension: 65,
+      friction: 11,
+      useNativeDriver: true,
+    }).start();
+  }, [showSoulPicker]);
+
   const loadData = async () => {
-    const userRaw = await AsyncStorage.getItem('echo_user');
-    const statsRaw = await AsyncStorage.getItem('echo_stats');
-    const moodRaw = await AsyncStorage.getItem('echo_today_mood');
+    const userRaw = await AsyncStorage.getItem('lumaid_user');
+    const statsRaw = await AsyncStorage.getItem('lumaid_stats');
+    const moodRaw = await AsyncStorage.getItem('lumaid_today_mood');
 
     if (userRaw) {
       const u = JSON.parse(userRaw);
@@ -50,8 +65,7 @@ export default function HomeScreen({ navigation }) {
     if (statsRaw) setStats(JSON.parse(statsRaw));
     if (moodRaw) {
       const m = JSON.parse(moodRaw);
-      const today = new Date().toDateString();
-      if (m.date === today) setTodayMood(m.moodId);
+      if (m.date === new Date().toDateString()) setTodayMood(m.moodId);
     }
   };
 
@@ -59,12 +73,12 @@ export default function HomeScreen({ navigation }) {
     Animated.loop(
       Animated.sequence([
         Animated.parallel([
-          Animated.timing(orbPulse, { toValue: 1.06, duration: 3000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-          Animated.timing(orbGlow,  { toValue: 1,    duration: 3000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+          Animated.timing(orbPulse, { toValue: 1.07, duration: 3200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+          Animated.timing(orbGlow,  { toValue: 1,    duration: 3200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
         ]),
         Animated.parallel([
-          Animated.timing(orbPulse, { toValue: 0.96, duration: 3000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-          Animated.timing(orbGlow,  { toValue: 0.4,  duration: 3000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+          Animated.timing(orbPulse, { toValue: 0.95, duration: 3200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+          Animated.timing(orbGlow,  { toValue: 0.3,  duration: 3200, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
         ]),
       ])
     ).start();
@@ -73,22 +87,26 @@ export default function HomeScreen({ navigation }) {
   const switchSoul = async (newSoul) => {
     setSoul(newSoul);
     setShowSoulPicker(false);
-    const userRaw = await AsyncStorage.getItem('echo_user');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    const userRaw = await AsyncStorage.getItem('lumaid_user');
     if (userRaw) {
       const u = JSON.parse(userRaw);
       u.soul = newSoul.id;
-      await AsyncStorage.setItem('echo_user', JSON.stringify(u));
+      await AsyncStorage.setItem('lumaid_user', JSON.stringify(u));
     }
   };
 
   const logMood = async (moodId) => {
     setTodayMood(moodId);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const entry = { moodId, date: new Date().toDateString(), timestamp: Date.now() };
-    await AsyncStorage.setItem('echo_today_mood', JSON.stringify(entry));
-    const histRaw = await AsyncStorage.getItem('echo_mood_history');
+    await AsyncStorage.setItem('lumaid_today_mood', JSON.stringify(entry));
+    const histRaw = await AsyncStorage.getItem('lumaid_mood_history');
     const hist = histRaw ? JSON.parse(histRaw) : [];
-    hist.push(entry);
-    await AsyncStorage.setItem('echo_mood_history', JSON.stringify(hist));
+    // Avoid duplicate same-day entries
+    const filtered = hist.filter(e => e.date !== entry.date);
+    filtered.push(entry);
+    await AsyncStorage.setItem('lumaid_mood_history', JSON.stringify(filtered));
   };
 
   const greeting = () => {
@@ -98,13 +116,21 @@ export default function HomeScreen({ navigation }) {
     return 'Good evening';
   };
 
+  const goToChat = (quickActionPrompt = null) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    navigation.navigate('Chat', {
+      soul: soul.id,
+      quickActionPrompt,
+    });
+  };
+
   if (!fontsLoaded) return null;
 
   const currentMood = MOODS.find(m => m.id === todayMood);
 
   return (
     <View style={styles.root}>
-      {/* Soft ambient glow */}
+      {/* Ambient glow */}
       <Animated.View style={[styles.ambientGlow, {
         backgroundColor: soul.glow,
         opacity: orbGlow,
@@ -112,11 +138,11 @@ export default function HomeScreen({ navigation }) {
       }]} />
 
       <Animated.ScrollView
-        style={{ opacity: fadeIn }}
+        style={{ opacity: fadeIn, flex: 1 }}
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
+        {/* ── Header ──────────────────────────────────────────────────────── */}
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>{greeting()}</Text>
@@ -124,10 +150,13 @@ export default function HomeScreen({ navigation }) {
           </View>
           <TouchableOpacity
             style={[styles.soulBadge, {
-              borderColor: soul.color + '60',
+              borderColor: soul.color + '55',
               backgroundColor: soul.glow,
             }]}
-            onPress={() => setShowSoulPicker(!showSoulPicker)}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              setShowSoulPicker(v => !v);
+            }}
           >
             <Text style={styles.soulBadgeEmoji}>{soul.emoji}</Text>
             <Text style={[styles.soulBadgeName, { color: soul.color }]}>{soul.name}</Text>
@@ -137,23 +166,28 @@ export default function HomeScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        {/* Soul Picker */}
+        {/* ── Soul Picker ─────────────────────────────────────────────────── */}
         {showSoulPicker && (
-          <View style={styles.soulPicker}>
-            <Text style={styles.soulPickerTitle}>Switch companion</Text>
+          <Animated.View style={[styles.soulPicker, {
+            opacity: soulPickerAnim,
+            transform: [{
+              translateY: soulPickerAnim.interpolate({ inputRange: [0, 1], outputRange: [-8, 0] }),
+            }],
+          }]}>
+            <Text style={styles.soulPickerTitle}>SWITCH COMPANION</Text>
             {Object.values(SOULS).map(s => (
               <TouchableOpacity
                 key={s.id}
                 style={[
                   styles.soulPickerItem,
                   soul.id === s.id && {
-                    backgroundColor: `${s.color}10`,
-                    borderColor: `${s.color}40`,
+                    backgroundColor: `${s.color}14`,
+                    borderColor: `${s.color}50`,
                   },
                 ]}
                 onPress={() => switchSoul(s)}
               >
-                <View style={[styles.soulPickerIcon, { backgroundColor: `${s.color}15` }]}>
+                <View style={[styles.soulPickerIcon, { backgroundColor: `${s.color}18` }]}>
                   <Text style={{ fontSize: 18 }}>{s.emoji}</Text>
                 </View>
                 <View style={{ flex: 1 }}>
@@ -167,21 +201,21 @@ export default function HomeScreen({ navigation }) {
                 )}
               </TouchableOpacity>
             ))}
-          </View>
+          </Animated.View>
         )}
 
-        {/* Central Orb */}
+        {/* ── Central Orb ─────────────────────────────────────────────────── */}
         <TouchableOpacity
-          activeOpacity={0.9}
-          onPress={() => navigation.navigate('Chat', { soul: soul.id })}
+          activeOpacity={0.88}
+          onPress={() => goToChat()}
           style={styles.orbContainer}
         >
           <Animated.View style={[styles.orbOuter, {
-            borderColor: soul.color + '30',
+            borderColor: soul.color + '35',
             transform: [{ scale: orbPulse }],
           }]}>
             <View style={[styles.orbMiddle, { backgroundColor: soul.glow }]}>
-              <View style={[styles.orbInner, { backgroundColor: soul.color + '20' }]}>
+              <View style={[styles.orbInner, { backgroundColor: soul.color + '18' }]}>
                 <View style={[styles.orbCore, { backgroundColor: soul.color }]}>
                   <Text style={styles.orbCoreEmoji}>{soul.emoji}</Text>
                 </View>
@@ -190,11 +224,28 @@ export default function HomeScreen({ navigation }) {
           </Animated.View>
           <Text style={styles.orbLabel}>Tap to talk with {soul.name}</Text>
           <View style={[styles.orbCta, { backgroundColor: soul.color }]}>
-            <Text style={styles.orbCtaText}>Start conversation</Text>
+            <Text style={styles.orbCtaText}>Start conversation  →</Text>
           </View>
         </TouchableOpacity>
 
-        {/* Mood Check-in */}
+        {/* ── Quick Actions ────────────────────────────────────────────────── */}
+        <View style={styles.card}>
+          <Text style={styles.cardLabel}>QUICK ACTIONS</Text>
+          <View style={styles.quickGrid}>
+            {QUICK_ACTIONS.map(action => (
+              <TouchableOpacity
+                key={action.id}
+                style={[styles.quickCard, { borderColor: soul.color + '35' }]}
+                onPress={() => goToChat(action.prompt)}
+              >
+                <Text style={styles.quickEmoji}>{action.emoji}</Text>
+                <Text style={styles.quickLabel}>{action.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* ── Mood Check-in ────────────────────────────────────────────────── */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardLabel}>HOW ARE YOU TODAY?</Text>
@@ -206,7 +257,7 @@ export default function HomeScreen({ navigation }) {
           </View>
           {todayMood ? (
             <View style={styles.moodDone}>
-              <View style={[styles.moodDoneIcon, { backgroundColor: currentMood?.color + '15' }]}>
+              <View style={[styles.moodDoneIcon, { backgroundColor: currentMood?.color + '18' }]}>
                 <Text style={{ fontSize: 28 }}>{currentMood?.emoji}</Text>
               </View>
               <View>
@@ -219,12 +270,8 @@ export default function HomeScreen({ navigation }) {
           ) : (
             <View style={styles.moodRow}>
               {MOODS.map(m => (
-                <TouchableOpacity
-                  key={m.id}
-                  style={styles.moodBtn}
-                  onPress={() => logMood(m.id)}
-                >
-                  <View style={[styles.moodIconWrap, { backgroundColor: m.color + '15' }]}>
+                <TouchableOpacity key={m.id} style={styles.moodBtn} onPress={() => logMood(m.id)}>
+                  <View style={[styles.moodIconWrap, { backgroundColor: m.color + '18' }]}>
                     <Text style={[styles.moodEmoji, { color: m.color }]}>{m.emoji}</Text>
                   </View>
                   <Text style={styles.moodLabel}>{m.label}</Text>
@@ -234,17 +281,17 @@ export default function HomeScreen({ navigation }) {
           )}
         </View>
 
-        {/* Quick Actions */}
+        {/* ── Action Cards ─────────────────────────────────────────────────── */}
         <View style={styles.actionsRow}>
           <TouchableOpacity
-            style={[styles.actionCard, { borderColor: soul.color + '30' }]}
-            onPress={() => navigation.navigate('Chat', { soul: soul.id })}
+            style={[styles.actionCard, { borderColor: soul.color + '35' }]}
+            onPress={() => goToChat()}
           >
-            <View style={[styles.actionIconWrap, { backgroundColor: soul.color + '15' }]}>
+            <View style={[styles.actionIconWrap, { backgroundColor: soul.color + '18' }]}>
               <Text style={styles.actionIcon}>💬</Text>
             </View>
-            <Text style={styles.actionTitle}>Talk to Echo</Text>
-            <Text style={styles.actionSub}>Start a conversation</Text>
+            <Text style={styles.actionTitle}>Talk to Lumaid</Text>
+            <Text style={styles.actionSub}>New conversation</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -259,13 +306,13 @@ export default function HomeScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        {/* Memory Card */}
+        {/* ── Memory Card ──────────────────────────────────────────────────── */}
         <View style={styles.card}>
-          <Text style={styles.cardLabel}>ECHO REMEMBERS</Text>
+          <Text style={styles.cardLabel}>YOUR JOURNEY</Text>
           <Text style={styles.memoryText}>
             {stats.totalChats === 0
-              ? "Start your first conversation — Echo will remember what matters to you across every session."
-              : `You've had ${stats.totalChats} exchange${stats.totalChats !== 1 ? 's' : ''} with Echo. Your journey is being quietly remembered.`}
+              ? "Start your first conversation — Lumaid is ready to listen."
+              : `${stats.totalChats} exchange${stats.totalChats !== 1 ? 's' : ''} so far. Every session starts fresh — your privacy, always.`}
           </Text>
         </View>
 
@@ -279,21 +326,24 @@ const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.bg },
   ambientGlow: {
     position: 'absolute',
-    width: width * 1.4,
-    height: width * 1.4,
-    borderRadius: width * 0.7,
-    top: -width * 0.6,
+    width: width * 1.5,
+    height: width * 1.0,
+    borderRadius: width * 0.75,
+    top: -width * 0.4,
     alignSelf: 'center',
     zIndex: 0,
   },
-  scroll: { paddingTop: 60, paddingHorizontal: 20 },
+  scroll: {
+    paddingTop: Platform.OS === 'ios' ? 64 : 40,
+    paddingHorizontal: 18,
+  },
 
   // Header
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   greeting: {
     fontFamily: 'Lato_400Regular',
@@ -312,52 +362,52 @@ const styles = StyleSheet.create({
     gap: 6,
     borderWidth: 1.5,
     borderRadius: 50,
-    paddingHorizontal: 14,
+    paddingHorizontal: 13,
     paddingVertical: 8,
   },
-  soulBadgeEmoji: { fontSize: 15 },
+  soulBadgeEmoji: { fontSize: 14 },
   soulBadgeName: {
     fontFamily: 'Lato_700Bold',
     fontSize: 13,
   },
   soulChevron: {
-    fontSize: 11,
+    fontSize: 10,
     fontFamily: 'Lato_700Bold',
   },
 
-  // Soul picker
+  // Soul Picker
   soulPicker: {
     backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 20,
-    padding: 16,
-    marginBottom: 20,
+    padding: 14,
+    marginBottom: 18,
     shadowColor: '#000',
-    shadowOpacity: 0.06,
+    shadowOpacity: 0.25,
     shadowRadius: 16,
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 6 },
   },
   soulPickerTitle: {
     fontFamily: 'Lato_700Bold',
-    fontSize: 11,
+    fontSize: 10,
     color: COLORS.muted,
-    letterSpacing: 0.1,
-    marginBottom: 12,
+    letterSpacing: 0.12,
+    marginBottom: 10,
   },
   soulPickerItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    padding: 12,
+    padding: 10,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: 'transparent',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   soulPickerIcon: {
-    width: 40, height: 40,
-    borderRadius: 12,
+    width: 38, height: 38,
+    borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -365,7 +415,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Lato_700Bold',
     fontSize: 14,
     color: COLORS.text,
-    marginBottom: 2,
+    marginBottom: 1,
   },
   soulPickerTag: {
     fontFamily: 'Lato_400Regular',
@@ -378,30 +428,30 @@ const styles = StyleSheet.create({
   },
 
   // Orb
-  orbContainer: { alignItems: 'center', marginVertical: 28 },
+  orbContainer: { alignItems: 'center', marginVertical: 22 },
   orbOuter: {
-    width: 180, height: 180,
-    borderRadius: 90,
+    width: 176, height: 176,
+    borderRadius: 88,
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   orbMiddle: {
-    width: 148, height: 148,
-    borderRadius: 74,
+    width: 144, height: 144,
+    borderRadius: 72,
     alignItems: 'center',
     justifyContent: 'center',
   },
   orbInner: {
-    width: 116, height: 116,
-    borderRadius: 58,
+    width: 112, height: 112,
+    borderRadius: 56,
     alignItems: 'center',
     justifyContent: 'center',
   },
   orbCore: {
-    width: 72, height: 72,
-    borderRadius: 36,
+    width: 70, height: 70,
+    borderRadius: 35,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -413,7 +463,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   orbCta: {
-    paddingHorizontal: 24,
+    paddingHorizontal: 22,
     paddingVertical: 10,
     borderRadius: 50,
   },
@@ -430,24 +480,25 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 20,
-    padding: 20,
-    marginBottom: 14,
+    padding: 18,
+    marginBottom: 12,
     shadowColor: '#000',
-    shadowOpacity: 0.04,
+    shadowOpacity: 0.2,
     shadowRadius: 12,
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 3 },
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   cardLabel: {
     fontFamily: 'Lato_700Bold',
     fontSize: 10,
     color: COLORS.muted,
     letterSpacing: 0.12,
+    marginBottom: 12,
   },
   cardAction: {
     fontFamily: 'Lato_400Regular',
@@ -455,20 +506,43 @@ const styles = StyleSheet.create({
     color: COLORS.accent,
   },
 
+  // Quick Actions grid
+  quickGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  quickCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: COLORS.surfaceUp,
+    borderWidth: 1,
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  quickEmoji: { fontSize: 14 },
+  quickLabel: {
+    fontFamily: 'Lato_700Bold',
+    fontSize: 12,
+    color: COLORS.textSoft,
+  },
+
   // Mood
   moodRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  moodBtn: { alignItems: 'center', gap: 6, flex: 1 },
+  moodBtn: { alignItems: 'center', gap: 5, flex: 1 },
   moodIconWrap: {
-    width: 44, height: 44,
-    borderRadius: 14,
+    width: 42, height: 42,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 2,
   },
-  moodEmoji: { fontSize: 20, fontFamily: 'Lato_700Bold' },
+  moodEmoji: { fontSize: 19, fontFamily: 'Lato_700Bold' },
   moodLabel: {
     fontFamily: 'Lato_400Regular',
     fontSize: 10,
@@ -477,11 +551,11 @@ const styles = StyleSheet.create({
   moodDone: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 14,
   },
   moodDoneIcon: {
-    width: 56, height: 56,
-    borderRadius: 16,
+    width: 52, height: 52,
+    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -496,28 +570,28 @@ const styles = StyleSheet.create({
     fontSize: 20,
   },
 
-  // Actions
-  actionsRow: { flexDirection: 'row', gap: 12, marginBottom: 14 },
+  // Action Cards
+  actionsRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
   actionCard: {
     flex: 1,
     backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 20,
-    padding: 18,
+    padding: 16,
     shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
     shadowOffset: { width: 0, height: 2 },
   },
   actionIconWrap: {
-    width: 44, height: 44,
-    borderRadius: 14,
+    width: 42, height: 42,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
   },
-  actionIcon: { fontSize: 22 },
+  actionIcon: { fontSize: 20 },
   actionTitle: {
     fontFamily: 'Lato_700Bold',
     fontSize: 14,
@@ -536,6 +610,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.textSoft,
     lineHeight: 22,
-    marginTop: 10,
   },
 });

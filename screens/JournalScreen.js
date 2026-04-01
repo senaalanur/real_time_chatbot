@@ -4,11 +4,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFonts } from 'expo-font';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-    Animated, Dimensions,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  Animated,
+  Dimensions,
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { COLORS, MOODS } from '../constants';
 
@@ -28,11 +30,11 @@ export default function JournalScreen({ navigation }) {
 
   useEffect(() => {
     loadHistory();
-    Animated.timing(fadeIn, { toValue: 1, duration: 700, useNativeDriver: true }).start();
+    Animated.timing(fadeIn, { toValue: 1, duration: 600, useNativeDriver: true }).start();
   }, []);
 
   const loadHistory = async () => {
-    const raw = await AsyncStorage.getItem('echo_mood_history');
+    const raw = await AsyncStorage.getItem('lumaid_mood_history');
     if (!raw) return;
     const all = JSON.parse(raw);
     const now = Date.now();
@@ -151,17 +153,12 @@ export default function JournalScreen({ navigation }) {
                 weekday: 'long', month: 'short', day: 'numeric',
               });
               return (
-                <View key={i} style={[
-                  styles.entryRow,
-                  i === 0 && { borderTopWidth: 0 },
-                ]}>
-                  <View style={[styles.entryIconWrap, { backgroundColor: mood.color + '15' }]}>
+                <View key={i} style={[styles.entryRow, i === 0 && { borderTopWidth: 0 }]}>
+                  <View style={[styles.entryIconWrap, { backgroundColor: mood.color + '18' }]}>
                     <Text style={styles.entryEmoji}>{mood.emoji}</Text>
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.entryMood, { color: mood.color }]}>
-                      {mood.label}
-                    </Text>
+                    <Text style={[styles.entryMood, { color: mood.color }]}>{mood.label}</Text>
                     <Text style={styles.entryDate}>{label}</Text>
                   </View>
                   <View style={styles.entryBarWrap}>
@@ -176,19 +173,19 @@ export default function JournalScreen({ navigation }) {
           )}
         </View>
 
-        {/* Echo Insight */}
+        {/* Lumaid Insight */}
         {history.length >= 3 && (
           <View style={[styles.card, styles.insightCard]}>
             <View style={styles.insightHeader}>
               <Text style={styles.insightIcon}>🌙</Text>
-              <Text style={styles.cardLabel}>ECHO'S INSIGHT</Text>
+              <Text style={styles.cardLabel}>LUMAID'S INSIGHT</Text>
             </View>
             <Text style={styles.insightText}>
               {parseFloat(stats.avg) >= 4
-                ? "You've been consistently positive lately. Echo notices — and is genuinely glad."
+                ? "You've been consistently positive lately. Lumaid notices — and is genuinely glad."
                 : parseFloat(stats.avg) >= 3
                 ? "Your mood has been balanced. Some highs, some lows — that's a full and honest life."
-                : "It's been a harder stretch. Echo remembers every day. You don't have to carry it alone."}
+                : "It's been a harder stretch. Lumaid remembers every day. You don't have to carry it alone."}
             </Text>
           </View>
         )}
@@ -201,36 +198,34 @@ export default function JournalScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.bg },
-  scroll: { paddingTop: 56, paddingHorizontal: 20 },
+  scroll: {
+    paddingTop: Platform.OS === 'ios' ? 64 : 40,
+    paddingHorizontal: 18,
+  },
 
-  // Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 24,
+    marginBottom: 22,
   },
   backBtn: {
     width: 40, height: 40,
     backgroundColor: COLORS.surface,
-    borderRadius: 12,
+    borderRadius: 13,
     borderWidth: 1,
     borderColor: COLORS.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  backText: {
-    fontSize: 18,
-    color: COLORS.text,
-  },
+  backText: { fontSize: 18, color: COLORS.text },
   title: {
     fontFamily: 'PlayfairDisplay_700Bold',
     fontSize: 22,
     color: COLORS.text,
   },
 
-  // Stats
-  statsRow: { flexDirection: 'row', gap: 10, marginBottom: 14 },
+  statsRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
   statCard: {
     flex: 1,
     backgroundColor: COLORS.surface,
@@ -239,15 +234,15 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 16,
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
     shadowColor: '#000',
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
   },
   statValue: {
     fontFamily: 'PlayfairDisplay_700Bold',
-    fontSize: 32,
+    fontSize: 30,
     color: COLORS.text,
   },
   statLabel: {
@@ -257,35 +252,33 @@ const styles = StyleSheet.create({
     letterSpacing: 0.1,
   },
 
-  // Card
   card: {
     backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 20,
-    padding: 20,
-    marginBottom: 14,
+    padding: 18,
+    marginBottom: 12,
     shadowColor: '#000',
-    shadowOpacity: 0.04,
+    shadowOpacity: 0.2,
     shadowRadius: 12,
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 3 },
   },
   cardLabel: {
     fontFamily: 'Lato_700Bold',
     fontSize: 10,
     color: COLORS.muted,
     letterSpacing: 0.12,
-    marginBottom: 16,
+    marginBottom: 14,
   },
 
-  // Bar chart
   barChart: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     gap: 4,
-    height: BAR_MAX_H + 24,
+    height: BAR_MAX_H + 22,
   },
-  barCol: { flex: 1, alignItems: 'center', gap: 6 },
+  barCol: { flex: 1, alignItems: 'center', gap: 5 },
   barTrack: {
     flex: 1,
     width: '100%',
@@ -302,7 +295,6 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
   },
 
-  // Entries
   entryRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -312,8 +304,8 @@ const styles = StyleSheet.create({
     borderTopColor: COLORS.border,
   },
   entryIconWrap: {
-    width: 44, height: 44,
-    borderRadius: 14,
+    width: 42, height: 42,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -329,25 +321,20 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
   },
   entryBarWrap: {
-    width: 6,
-    height: 40,
+    width: 6, height: 38,
     backgroundColor: COLORS.surfaceUp,
     borderRadius: 3,
     justifyContent: 'flex-end',
     overflow: 'hidden',
   },
-  entryBar: {
-    width: '100%',
-    borderRadius: 3,
-  },
+  entryBar: { width: '100%', borderRadius: 3 },
 
-  // Empty state
   emptyState: {
     alignItems: 'center',
     paddingVertical: 20,
     gap: 8,
   },
-  emptyEmoji: { fontSize: 36 },
+  emptyEmoji: { fontSize: 34 },
   emptyTitle: {
     fontFamily: 'Lato_700Bold',
     fontSize: 15,
@@ -359,21 +346,20 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
     textAlign: 'center',
     lineHeight: 20,
-    maxWidth: 240,
+    maxWidth: 230,
   },
 
-  // Insight
   insightCard: {
-    borderColor: COLORS.accent + '30',
+    borderColor: COLORS.accent + '35',
     backgroundColor: COLORS.accentSoft,
   },
   insightHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 14,
   },
-  insightIcon: { fontSize: 16 },
+  insightIcon: { fontSize: 15 },
   insightText: {
     fontFamily: 'Lato_400Regular',
     fontSize: 14,

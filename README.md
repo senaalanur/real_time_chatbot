@@ -1,10 +1,10 @@
-# 🌙 ECHO — The AI That Grows With You
+# 🌙 Lumaid — Your AI Companion
 
-> A production-grade AI companion mobile app built with React Native + Expo. Features persistent memory, 4 AI soul personas, mood journaling, voice I/O, and real-time latency analytics. Available on iOS & Android.
+> A production-grade AI companion mobile app built with React Native + Expo. Features 4 distinct AI soul personas, mood journaling, voice I/O, quick action prompts, and real-time latency analytics. Available on iOS & Android.
 
-![React Native](https://img.shields.io/badge/React_Native-0.74-61DAFB?style=flat&logo=react)
-![Expo](https://img.shields.io/badge/Expo-51-000000?style=flat&logo=expo)
-![Gemini](https://img.shields.io/badge/Gemini_Pro-API-4285F4?style=flat&logo=google)
+![React Native](https://img.shields.io/badge/React_Native-0.81-61DAFB?style=flat&logo=react)
+![Expo](https://img.shields.io/badge/Expo-54-000000?style=flat&logo=expo)
+![Gemini](https://img.shields.io/badge/Gemini_2.0_Flash-API-4285F4?style=flat&logo=google)
 ![Platforms](https://img.shields.io/badge/Platforms-iOS_%7C_Android-lightgrey?style=flat)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat)
 
@@ -14,36 +14,97 @@
 
 | Feature | Details |
 |---|---|
-| 🧠 **Persistent Memory** | Conversation history stored on-device via AsyncStorage across sessions |
-| 🎭 **4 Soul Modes** | Sage, Spark, Zen, Ghost — distinct AI personalities with unique prompts & voice cadence |
-| 🎙️ **Voice I/O** | expo-speech for TTS with soul-adaptive speaking rate |
-| 📊 **Mood Journal** | Daily check-ins, 14-day bar chart, streak tracking, Echo-generated insights |
-| ⚡ **Latency Analytics** | Per-message and session-average Gemini API response time displayed in chat |
+| 🎭 **4 Soul Modes** | Sage, Spark, Zen, Ghost — distinct AI personalities with unique system prompts & voice cadence |
+| ⚡ **Quick Actions** | 6 pre-built conversation starters: Summarize My Day, Roleplay Interview, Brainstorm Ideas, Vent, Evening Reflection, Focus Mode |
+| 🎙️ **Voice I/O** | expo-speech TTS with soul-adaptive speaking rate and pitch |
+| 📊 **Mood Journal** | Daily check-ins, 14-day bar chart, streak tracking, Lumaid-generated insights |
+| 🔄 **Fresh Sessions** | Every conversation starts clean — no stale context, full privacy |
+| ⚡ **Latency Analytics** | Per-message and session-average API response time displayed in chat |
+| 🎨 **Dark Glassmorphism UI** | Electric blue accents, animated breathing orb, smooth transitions |
 | 🚀 **App Store Ready** | Expo EAS Build config for iOS & Android deployment |
-| 🎨 **Animated Onboarding** | 4-step animated onboarding with soul selection |
 
 ---
 
 ## 📱 Screens
+
 ```
 Onboarding (4 steps)
   └─ Welcome → Name → Soul selection → Ready
+
 Home
   ├─ Animated breathing orb (tap to chat)
   ├─ Soul switcher
+  ├─ Quick Actions grid
   ├─ Daily mood check-in
-  └─ Quick actions
+  └─ Mood Journal shortcut
+
 Chat
-  ├─ Multi-turn conversation with memory
-  ├─ Typing indicator
+  ├─ Fresh session on every open
+  ├─ Typing indicator with bounce animation
+  ├─ Quick Actions panel (⚡ button)
   ├─ Per-message latency badge
   └─ TTS with soul-matched voice cadence
+
 Journal
   ├─ 14-day mood bar chart
   ├─ Streak + average stats
   ├─ Entry history
-  └─ Echo insight card
+  └─ Lumaid insight card
 ```
+
+---
+
+## 🏗️ Architecture
+
+```
+┌────────────────────────────────────┐
+│         React Native / Expo        │
+│  Onboarding → Home → Chat/Journal  │
+└────────────────┬───────────────────┘
+                 │
+┌────────────────▼───────────────────┐
+│           constants.js             │
+│  Soul Modes · callClaude() · Theme │
+│  Quick Actions · Mood Options      │
+└────────────────┬───────────────────┘
+                 │ HTTPS fetch
+┌────────────────▼───────────────────┐
+│         Gemini 2.0 Flash API       │
+│  Soul system prompt injection      │
+│  + conversation history (last 12)  │
+└────────────────────────────────────┘
+         │                  │
+┌────────▼──────┐  ┌────────▼──────┐
+│  AsyncStorage  │  │  expo-speech  │
+│  (on-device)  │  │  (TTS voice)  │
+└───────────────┘  └───────────────┘
+```
+
+---
+
+## 🎭 Soul Modes
+
+| Soul | Personality | Voice | Best For |
+|---|---|---|---|
+| 🌿 **Sage** | Wise, philosophical, Socratic | Slow & warm | Reflection, big decisions |
+| ⚡ **Spark** | Hype, energetic, celebratory | Fast & bright | Motivation, celebrations |
+| 🌊 **Zen** | Calm, non-judgmental, grounding | Soft & slow | Stress, anxiety, venting |
+| ◈ **Ghost** | Minimal, direct, no fluff | Neutral | Quick answers, focus |
+
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Framework | React Native + Expo SDK 54 |
+| Navigation | React Navigation v7 |
+| AI | Google Gemini 2.0 Flash via REST API |
+| Storage | AsyncStorage (on-device, private) |
+| Voice | expo-speech (TTS) |
+| Haptics | expo-haptics |
+| Fonts | Playfair Display, Lato, Space Mono |
+| Build | Expo EAS Build |
 
 ---
 
@@ -65,85 +126,18 @@ Get a free key at [aistudio.google.com](https://aistudio.google.com)
 
 ### 3. Run on your phone
 ```bash
-npx expo start
+npx expo start --clear
 ```
 Scan the QR code with **Expo Go** on your phone.
 
 ---
 
-## 🏗️ Architecture
-```
-┌────────────────────────────────────┐
-│         React Native / Expo        │
-│  Onboarding → Home → Chat/Journal  │
-└────────────────┬───────────────────┘
-                 │
-┌────────────────▼───────────────────┐
-│           constants.js             │
-│  Soul Modes · callGemini() · Theme │
-└────────────────┬───────────────────┘
-                 │ HTTPS fetch
-┌────────────────▼───────────────────┐
-│         Gemini Pro API             │
-│  Prompt injection with soul system │
-│  + full conversation history       │
-└────────────────────────────────────┘
-         │                  │
-┌────────▼──────┐  ┌────────▼──────┐
-│  AsyncStorage  │  │  expo-speech  │
-│  (on-device)  │  │  (TTS voice)  │
-└───────────────┘  └───────────────┘
-```
-
----
-
-## 🎭 Soul Modes
-
-| Soul | Personality | Voice | Use Case |
-|---|---|---|---|
-| 🌿 **Sage** | Wise, measured, philosophical | Slow & warm | Reflection, big decisions |
-| ⚡ **Spark** | Hype, energetic, celebratory | Fast & bright | Motivation, celebrations |
-| 🌊 **Zen** | Calm, non-judgmental, grounding | Soft & slow | Stress, anxiety, venting |
-| ◈ **Ghost** | Minimal, direct, no fluff | Neutral | Quick answers, focus |
-
----
-
-## 🔑 Key Engineering Decisions
-
-**Soul-injected prompt engineering**
-Each soul mode injects a personality system prompt as the first turn of every Gemini API call. This makes personality swapping instantaneous and works with any LLM.
-
-**On-device persistence**
-All conversation history and mood data lives in AsyncStorage — no server, no account required. Privacy-first by design.
-
-**Latency-first UX**
-Every API response is timed and displayed as a badge per message, making performance visible and creating a technical feel that differentiates ECHO from consumer chatbots.
-
-**Cross-platform with Expo**
-One codebase ships to both iOS and Android. EAS Build handles app signing and store submission.
-
----
-
-## 🛠️ Tech Stack
-
-| Layer | Technology |
-|---|---|
-| Framework | React Native + Expo |
-| Navigation | React Navigation v6 |
-| AI | Google Gemini Pro via REST API |
-| Storage | AsyncStorage (on-device) |
-| Voice | expo-speech (TTS) |
-| Fonts | Playfair Display, Lato, Space Mono |
-| Build | Expo EAS Build |
-
----
-
 ## 🔮 Roadmap
 
-- [ ] Whisper Mode — private voice journaling with Echo summaries
-- [ ] Memory Anchors — Echo proactively follows up on things you mention
+- [ ] Whisper Mode — private voice journaling with Lumaid summaries
+- [ ] Memory Anchors — Lumaid proactively follows up on things you mention
 - [ ] Multi-model support (Claude, GPT-4o alongside Gemini)
-- [ ] Widget for home screen mood check-in
+- [ ] Home screen widget for mood check-in
 - [ ] Streak achievements and milestones
 
 ---

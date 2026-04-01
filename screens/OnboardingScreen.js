@@ -4,14 +4,20 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFonts } from 'expo-font';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-    Animated, Dimensions, KeyboardAvoidingView, Platform, ScrollView,
-    StyleSheet,
-    Text, TextInput, TouchableOpacity,
-    View,
+  Animated,
+  Dimensions,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { COLORS, SOULS } from '../constants';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 export default function OnboardingScreen({ navigation }) {
   const [step, setStep] = useState(0);
@@ -39,21 +45,21 @@ export default function OnboardingScreen({ navigation }) {
 
   const transition = (nextStep) => {
     Animated.parallel([
-      Animated.timing(fadeAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
-      Animated.timing(slideAnim, { toValue: -20, duration: 200, useNativeDriver: true }),
+      Animated.timing(fadeAnim, { toValue: 0, duration: 180, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: -16, duration: 180, useNativeDriver: true }),
     ]).start(() => {
       setStep(nextStep);
-      slideAnim.setValue(20);
+      slideAnim.setValue(16);
       Animated.parallel([
-        Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
-        Animated.timing(slideAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
+        Animated.timing(fadeAnim, { toValue: 1, duration: 280, useNativeDriver: true }),
+        Animated.timing(slideAnim, { toValue: 0, duration: 280, useNativeDriver: true }),
       ]).start();
     });
   };
 
   const finish = async () => {
     const user = { name, soul: selectedSoul, createdAt: Date.now() };
-    await AsyncStorage.setItem('echo_user', JSON.stringify(user));
+    await AsyncStorage.setItem('lumaid_user', JSON.stringify(user));
     navigation.replace('Home');
   };
 
@@ -64,7 +70,7 @@ export default function OnboardingScreen({ navigation }) {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.root}
     >
-      {/* Soft background blob */}
+      {/* Ambient glow */}
       <Animated.View style={[styles.blob, {
         backgroundColor: soul.glow,
         opacity: orbOpacity,
@@ -73,18 +79,18 @@ export default function OnboardingScreen({ navigation }) {
 
       {/* Step indicators */}
       <View style={styles.stepRow}>
-        {[0,1,2,3].map(i => (
+        {[0, 1, 2, 3].map(i => (
           <View key={i} style={[
             styles.stepDot,
-            i === step && styles.stepDotActive,
-            i < step && styles.stepDotDone,
+            i === step && [styles.stepDotActive, { backgroundColor: soul.color }],
+            i < step && [styles.stepDotDone, { backgroundColor: soul.color }],
           ]} />
         ))}
       </View>
 
       <Animated.View style={[
         styles.content,
-        { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }
+        { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
       ]}>
 
         {/* STEP 0 — Welcome */}
@@ -92,11 +98,11 @@ export default function OnboardingScreen({ navigation }) {
           <View style={styles.center}>
             <View style={styles.logoWrap}>
               <Text style={styles.logoEmoji}>🌙</Text>
-              <Text style={styles.logo}>echo</Text>
+              <Text style={styles.logo}>lumaid</Text>
             </View>
             <Text style={styles.tagline}>The AI that grows with you.</Text>
             <Text style={styles.sub}>
-              A companion that learns who you are, remembers what matters, and evolves alongside you — privately, on your device.
+              A companion that listens deeply, responds honestly, and evolves alongside you — privately, on your device.
             </Text>
             <TouchableOpacity style={styles.btn} onPress={() => transition(1)}>
               <Text style={styles.btnText}>Get Started</Text>
@@ -109,7 +115,7 @@ export default function OnboardingScreen({ navigation }) {
         {step === 1 && (
           <View style={styles.center}>
             <Text style={styles.stepLabel}>STEP 1 OF 3</Text>
-            <Text style={styles.question}>What should{'\n'}Echo call you?</Text>
+            <Text style={styles.question}>What should{'\n'}Lumaid call you?</Text>
             <View style={styles.inputWrap}>
               <TextInput
                 style={styles.input}
@@ -131,7 +137,7 @@ export default function OnboardingScreen({ navigation }) {
           </View>
         )}
 
-        {/* STEP 2 — Soul Mode */}
+        {/* STEP 2 — Soul */}
         {step === 2 && (
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.center}>
             <Text style={styles.stepLabel}>STEP 2 OF 3</Text>
@@ -145,10 +151,10 @@ export default function OnboardingScreen({ navigation }) {
                     styles.soulCard,
                     selectedSoul === s.id && {
                       borderColor: s.color,
-                      backgroundColor: `${s.color}12`,
+                      backgroundColor: `${s.color}14`,
                       shadowColor: s.color,
-                      shadowOpacity: 0.15,
-                      shadowRadius: 12,
+                      shadowOpacity: 0.2,
+                      shadowRadius: 14,
                       shadowOffset: { width: 0, height: 4 },
                     },
                   ]}
@@ -157,7 +163,7 @@ export default function OnboardingScreen({ navigation }) {
                   <Text style={styles.soulEmoji}>{s.emoji}</Text>
                   <Text style={[
                     styles.soulName,
-                    { color: selectedSoul === s.id ? s.color : COLORS.text }
+                    { color: selectedSoul === s.id ? s.color : COLORS.text },
                   ]}>
                     {s.name}
                   </Text>
@@ -170,7 +176,10 @@ export default function OnboardingScreen({ navigation }) {
                 </TouchableOpacity>
               ))}
             </View>
-            <TouchableOpacity style={[styles.btn, { backgroundColor: soul.color }]} onPress={() => transition(3)}>
+            <TouchableOpacity
+              style={[styles.btn, { backgroundColor: soul.color }]}
+              onPress={() => transition(3)}
+            >
               <Text style={styles.btnText}>Choose {soul.name}</Text>
             </TouchableOpacity>
           </ScrollView>
@@ -179,23 +188,33 @@ export default function OnboardingScreen({ navigation }) {
         {/* STEP 3 — Ready */}
         {step === 3 && (
           <View style={styles.center}>
-            <View style={[styles.readyOrb, { backgroundColor: `${soul.color}18`, borderColor: `${soul.color}30` }]}>
+            <View style={[styles.readyOrb, {
+              backgroundColor: `${soul.color}18`,
+              borderColor: `${soul.color}35`,
+            }]}>
               <Text style={styles.readyEmoji}>{soul.emoji}</Text>
             </View>
             <Text style={styles.question}>Hello, {name}.{'\n'}{soul.name} is ready.</Text>
             <Text style={styles.sub}>
-              Echo will remember your conversations, track your mood over time, and grow alongside you.
+              Lumaid will track your mood over time and start every conversation fresh — so you can be honest.
             </Text>
             <View style={styles.featureList}>
-              {['Persistent memory across sessions', 'Daily mood tracking & insights', 'Voice conversations'].map((f, i) => (
+              {[
+                'Fresh, private sessions every time',
+                'Daily mood tracking & insights',
+                'Voice conversations with personality',
+              ].map((f, i) => (
                 <View key={i} style={styles.featureRow}>
                   <View style={[styles.featureDot, { backgroundColor: soul.color }]} />
                   <Text style={styles.featureText}>{f}</Text>
                 </View>
               ))}
             </View>
-            <TouchableOpacity style={[styles.btn, { backgroundColor: soul.color }]} onPress={finish}>
-              <Text style={styles.btnText}>Open Echo</Text>
+            <TouchableOpacity
+              style={[styles.btn, { backgroundColor: soul.color }]}
+              onPress={finish}
+            >
+              <Text style={styles.btnText}>Open Lumaid</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -209,87 +228,79 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: COLORS.bg,
-    paddingHorizontal: 28,
+    paddingHorizontal: 26,
   },
   blob: {
     position: 'absolute',
-    width: width * 1.2,
-    height: width * 1.2,
-    borderRadius: width * 0.6,
-    top: -width * 0.4,
+    width: width * 1.3,
+    height: width * 1.1,
+    borderRadius: width * 0.65,
+    top: -width * 0.45,
     alignSelf: 'center',
+    opacity: 0.4,
   },
   stepRow: {
     flexDirection: 'row',
     gap: 6,
     justifyContent: 'center',
-    paddingTop: 64,
-    marginBottom: 8,
+    paddingTop: Platform.OS === 'ios' ? 68 : 48,
+    marginBottom: 6,
   },
   stepDot: {
     width: 6, height: 6,
     borderRadius: 3,
     backgroundColor: COLORS.border,
   },
-  stepDotActive: {
-    backgroundColor: COLORS.accent,
-    width: 20,
-  },
-  stepDotDone: {
-    backgroundColor: COLORS.accent,
-    opacity: 0.4,
-  },
+  stepDotActive: { width: 22 },
+  stepDotDone: { opacity: 0.4 },
   content: {
     flex: 1,
     justifyContent: 'center',
   },
   center: {
     alignItems: 'center',
-    paddingVertical: 20,
+    paddingVertical: 16,
   },
   logoWrap: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 22,
   },
-  logoEmoji: {
-    fontSize: 48,
-    marginBottom: 8,
-  },
+  logoEmoji: { fontSize: 46, marginBottom: 6 },
   logo: {
     fontFamily: 'PlayfairDisplay_700Bold',
-    fontSize: 48,
+    fontSize: 46,
     color: COLORS.text,
-    letterSpacing: 6,
+    letterSpacing: 7,
   },
   tagline: {
     fontFamily: 'Lato_700Bold',
-    fontSize: 18,
+    fontSize: 17,
     color: COLORS.text,
-    marginBottom: 16,
+    marginBottom: 14,
     textAlign: 'center',
   },
   sub: {
     fontFamily: 'Lato_400Regular',
-    fontSize: 15,
+    fontSize: 14,
     color: COLORS.textSoft,
     textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 40,
-    maxWidth: 300,
+    lineHeight: 23,
+    marginBottom: 36,
+    maxWidth: 290,
   },
   stepLabel: {
     fontFamily: 'Lato_700Bold',
     fontSize: 10,
     color: COLORS.muted,
-    letterSpacing: 0.15,
-    marginBottom: 16,
+    letterSpacing: 0.14,
+    marginBottom: 14,
   },
   question: {
     fontFamily: 'PlayfairDisplay_700Bold',
-    fontSize: 34,
+    fontSize: 32,
     color: COLORS.text,
     textAlign: 'center',
-    lineHeight: 44,
+    lineHeight: 42,
     marginBottom: 12,
   },
   inputWrap: {
@@ -298,15 +309,11 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1.5,
     borderColor: COLORS.border,
-    marginBottom: 24,
-    shadowColor: COLORS.shadow,
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
+    marginBottom: 22,
   },
   input: {
     fontFamily: 'Lato_400Regular',
-    fontSize: 18,
+    fontSize: 17,
     color: COLORS.text,
     paddingHorizontal: 20,
     paddingVertical: 16,
@@ -314,19 +321,19 @@ const styles = StyleSheet.create({
   },
   btn: {
     backgroundColor: COLORS.accent,
-    paddingHorizontal: 48,
-    paddingVertical: 17,
+    paddingHorizontal: 44,
+    paddingVertical: 16,
     borderRadius: 50,
     shadowColor: COLORS.accent,
-    shadowOpacity: 0.25,
-    shadowRadius: 12,
+    shadowOpacity: 0.3,
+    shadowRadius: 14,
     shadowOffset: { width: 0, height: 4 },
-    marginBottom: 16,
+    marginBottom: 14,
   },
-  btnDisabled: { opacity: 0.35 },
+  btnDisabled: { opacity: 0.3 },
   btnText: {
     fontFamily: 'Lato_700Bold',
-    fontSize: 16,
+    fontSize: 15,
     color: COLORS.white,
     letterSpacing: 0.3,
   },
@@ -338,38 +345,38 @@ const styles = StyleSheet.create({
   soulGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: 10,
     justifyContent: 'center',
-    marginBottom: 28,
-    marginTop: 8,
+    marginBottom: 24,
+    marginTop: 6,
     width: '100%',
   },
   soulCard: {
-    width: (width - 80) / 2,
+    width: (width - 72) / 2,
     backgroundColor: COLORS.surface,
     borderWidth: 1.5,
     borderColor: COLORS.border,
     borderRadius: 20,
-    padding: 18,
+    padding: 16,
     alignItems: 'center',
-    gap: 6,
-    shadowColor: COLORS.shadow,
-    shadowOpacity: 1,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
+    gap: 5,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
   },
-  soulEmoji: { fontSize: 30 },
+  soulEmoji: { fontSize: 28 },
   soulName: {
     fontFamily: 'Lato_700Bold',
-    fontSize: 15,
+    fontSize: 14,
     color: COLORS.text,
   },
   soulTagline: {
     fontFamily: 'Lato_400Regular',
-    fontSize: 11,
+    fontSize: 10,
     color: COLORS.muted,
     textAlign: 'center',
-    lineHeight: 16,
+    lineHeight: 15,
   },
   soulCheck: {
     position: 'absolute',
@@ -385,37 +392,37 @@ const styles = StyleSheet.create({
     fontFamily: 'Lato_700Bold',
   },
   readyOrb: {
-    width: 100, height: 100,
-    borderRadius: 50,
+    width: 96, height: 96,
+    borderRadius: 48,
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 28,
+    marginBottom: 24,
   },
-  readyEmoji: { fontSize: 44 },
+  readyEmoji: { fontSize: 42 },
   featureList: {
     width: '100%',
     backgroundColor: COLORS.surface,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: COLORS.border,
-    padding: 20,
-    gap: 14,
-    marginBottom: 32,
+    padding: 18,
+    gap: 13,
+    marginBottom: 28,
   },
   featureRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 11,
   },
   featureDot: {
-    width: 7, height: 7,
-    borderRadius: 4,
+    width: 6, height: 6,
+    borderRadius: 3,
     flexShrink: 0,
   },
   featureText: {
     fontFamily: 'Lato_400Regular',
-    fontSize: 14,
+    fontSize: 13,
     color: COLORS.text,
   },
 });
