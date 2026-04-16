@@ -29,53 +29,39 @@
 ---
 
 ## 📱 Screens
-Auth
-└─ Sign in / Sign up (email + password)
-Onboarding (4 steps)
-└─ Welcome → Name → Soul selection → Ready
-Home
-├─ Animated breathing orb (tap to chat)
-├─ Soul switcher
-├─ Wellness Tools grid
-├─ Daily mood check-in
-└─ Mood Journal shortcut
-Chat
-├─ Empathetic short responses with thinking delay
-├─ Typing indicator animation
-├─ Wellness Tools panel
-├─ Character accent color on bot bubbles
-└─ TTS voice output (tap to activate)
-Journal
-├─ 14-day mood bar chart
-├─ Streak + average stats
-├─ Entry history
-└─ Lumaid insight card
+
+**Auth** — Sign in / Sign up (email + password)
+
+**Onboarding** — Welcome → Name → Soul selection → Ready
+
+**Home** — Animated breathing orb, soul switcher, wellness tools grid, daily mood check-in, journal shortcut
+
+**Chat** — Empathetic short responses with thinking delay, typing indicator, wellness tools panel, character accent bubbles, TTS voice output
+
+**Journal** — 14-day mood bar chart, streak + average stats, entry history, Lumaid insight card
 
 ---
 
 ## 🏗️ Architecture
-┌────────────────────────────────────┐
-│         React Native / Expo        │
-│  Auth → Onboarding → Home → Chat   │
-└────────────────┬───────────────────┘
-│ HTTPS fetch
-┌────────────────▼───────────────────┐
-│       Node.js / Express Backend    │
-│   Rate limiting · API proxy        │
-│   Groq key never leaves server     │
-└────────────────┬───────────────────┘
-│
-┌────────────────▼───────────────────┐
-│         Groq API (LLaMA 3.3)       │
-│  Soul system prompt injection      │
-│  + conversation history (last 12)  │
-└────────────────────────────────────┘
-│                  │
-┌────────▼──────┐  ┌────────▼──────┐
-│   Supabase    │  │  AsyncStorage  │
-│   (Auth +     │  │  (mood/stats) │
-│   user data)  │  └───────────────┘
-└───────────────┘
+
+```
+React Native / Expo
+Auth → Onboarding → Home → Chat
+        │
+        ▼
+Node.js / Express Backend
+Rate limiting · Groq API proxy
+API key never leaves server
+        │
+        ▼
+Groq API — LLaMA 3.3 70B
+Soul system prompt + conversation history
+        │
+        ├──────────────────┐
+        ▼                  ▼
+Supabase Auth         AsyncStorage
+User accounts         Mood + stats
+```
 
 ---
 
@@ -111,6 +97,7 @@ Journal
 ## 🚀 Quick Start
 
 ### 1. Clone & install
+
 ```bash
 git clone https://github.com/senaalanur/real_time_chatbot.git
 cd real_time_chatbot
@@ -118,28 +105,35 @@ npm install
 ```
 
 ### 2. Set up environment variables
+
 Create a `.env` file in the root:
+
+```
 EXPO_PUBLIC_SUPABASE_URL=your_supabase_url
 EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
 
 ### 3. Set up the backend
+
 ```bash
 cd ../lumaid-backend
 npm install
 ```
 
 Create a `.env` file in `lumaid-backend/`:
+
+```
 GROQ_KEY=your_groq_api_key
+```
 
 Start the backend:
+
 ```bash
 node server.js
-# or with pm2:
-pm2 start server.js --name lumaid-backend
 ```
 
 ### 4. Update your IP in constants.js
-In `constants.js`, set your local IP:
+
 ```javascript
 const BACKEND_URL = __DEV__
   ? 'http://YOUR_LOCAL_IP:3001'
@@ -147,9 +141,11 @@ const BACKEND_URL = __DEV__
 ```
 
 ### 5. Run on your phone
+
 ```bash
 npx expo start
 ```
+
 Scan the QR code with your iPhone camera.
 
 ---
