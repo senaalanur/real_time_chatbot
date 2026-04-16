@@ -1,10 +1,11 @@
-# 🌙 Lumaid — Your AI Companion
+# 🌙 Lumaid — AI Wellness Companion
 
-> A production-grade AI companion mobile app built with React Native + Expo. Features 4 distinct AI soul personas, mood journaling, voice I/O, quick action prompts, and real-time latency analytics. Available on iOS & Android.
+> A production-grade AI wellness app built with React Native + Expo. Talk to your AI companion about real life — stress, anxiety, focus, reflection. Features 4 distinct AI personas, mood journaling, voice output, daily wellness tools, and Supabase authentication. Available on iOS & Android.
 
 ![React Native](https://img.shields.io/badge/React_Native-0.81-61DAFB?style=flat&logo=react)
 ![Expo](https://img.shields.io/badge/Expo-54-000000?style=flat&logo=expo)
-![Gemini](https://img.shields.io/badge/Gemini_2.0_Flash-API-4285F4?style=flat&logo=google)
+![Supabase](https://img.shields.io/badge/Supabase-Auth-3ECF8E?style=flat&logo=supabase)
+![Groq](https://img.shields.io/badge/Groq-LLaMA_3.3-F55036?style=flat)
 ![Platforms](https://img.shields.io/badge/Platforms-iOS_%7C_Android-lightgrey?style=flat)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat)
 
@@ -14,82 +15,78 @@
 
 | Feature | Details |
 |---|---|
-| 🎭 **4 Soul Modes** | Sage, Spark, Zen, Ghost — distinct AI personalities with unique system prompts & voice cadence |
-| ⚡ **Quick Actions** | 6 pre-built conversation starters: Summarize My Day, Roleplay Interview, Brainstorm Ideas, Vent, Evening Reflection, Focus Mode |
-| 🎙️ **Voice I/O** | expo-speech TTS with soul-adaptive speaking rate and pitch |
-| 📊 **Mood Journal** | Daily check-ins, 14-day bar chart, streak tracking, Lumaid-generated insights |
-| 🔄 **Fresh Sessions** | Every conversation starts clean — no stale context, full privacy |
-| ⚡ **Latency Analytics** | Per-message and session-average API response time displayed in chat |
-| 🎨 **Dark Glassmorphism UI** | Electric blue accents, animated breathing orb, smooth transitions |
-| 🚀 **App Store Ready** | Expo EAS Build config for iOS & Android deployment |
+| 🔐 **Authentication** | Supabase email/password auth with confirm password validation |
+| 🎭 **4 Wellness Personas** | Sage, Spark, Zen, Ghost — distinct AI companions with unique system prompts |
+| 🌿 **Wellness Tools** | Daily check-in, vent session, evening reflection, anxiety support, gratitude practice, focus mode |
+| 🎙️ **Voice Output** | expo-speech TTS with soul-adaptive speaking rate — tap to listen |
+| 📊 **Mood Journal** | Daily check-ins, 14-day bar chart, streak tracking, AI-generated insights |
+| 🧠 **Empathetic AI** | Short, reflective responses with thinking delay — feels like real listening |
+| 🔒 **Secure Backend** | Node.js/Express proxy server — API keys never exposed to client |
+| ⚡ **Rate Limiting** | 20 messages/hour per IP — protects API costs |
+| 🎨 **Dark Glassmorphism UI** | Deep navy/black base, frosted glass cards, colored character accents |
+| 🚀 **Production Ready** | pm2 process manager, Supabase auth, EAS Build config |
 
 ---
 
 ## 📱 Screens
-
-```
+Auth
+└─ Sign in / Sign up (email + password)
 Onboarding (4 steps)
-  └─ Welcome → Name → Soul selection → Ready
-
+└─ Welcome → Name → Soul selection → Ready
 Home
-  ├─ Animated breathing orb (tap to chat)
-  ├─ Soul switcher
-  ├─ Quick Actions grid
-  ├─ Daily mood check-in
-  └─ Mood Journal shortcut
-
+├─ Animated breathing orb (tap to chat)
+├─ Soul switcher
+├─ Wellness Tools grid
+├─ Daily mood check-in
+└─ Mood Journal shortcut
 Chat
-  ├─ Fresh session on every open
-  ├─ Typing indicator with bounce animation
-  ├─ Quick Actions panel (⚡ button)
-  ├─ Per-message latency badge
-  └─ TTS with soul-matched voice cadence
-
+├─ Empathetic short responses with thinking delay
+├─ Typing indicator animation
+├─ Wellness Tools panel
+├─ Character accent color on bot bubbles
+└─ TTS voice output (tap to activate)
 Journal
-  ├─ 14-day mood bar chart
-  ├─ Streak + average stats
-  ├─ Entry history
-  └─ Lumaid insight card
-```
+├─ 14-day mood bar chart
+├─ Streak + average stats
+├─ Entry history
+└─ Lumaid insight card
 
 ---
 
 ## 🏗️ Architecture
-
-```
 ┌────────────────────────────────────┐
 │         React Native / Expo        │
-│  Onboarding → Home → Chat/Journal  │
+│  Auth → Onboarding → Home → Chat   │
 └────────────────┬───────────────────┘
-                 │
+│ HTTPS fetch
 ┌────────────────▼───────────────────┐
-│           constants.js             │
-│  Soul Modes · callClaude() · Theme │
-│  Quick Actions · Mood Options      │
+│       Node.js / Express Backend    │
+│   Rate limiting · API proxy        │
+│   Groq key never leaves server     │
 └────────────────┬───────────────────┘
-                 │ HTTPS fetch
+│
 ┌────────────────▼───────────────────┐
-│         Gemini 2.0 Flash API       │
+│         Groq API (LLaMA 3.3)       │
 │  Soul system prompt injection      │
 │  + conversation history (last 12)  │
 └────────────────────────────────────┘
-         │                  │
+│                  │
 ┌────────▼──────┐  ┌────────▼──────┐
-│  AsyncStorage  │  │  expo-speech  │
-│  (on-device)  │  │  (TTS voice)  │
-└───────────────┘  └───────────────┘
-```
+│   Supabase    │  │  AsyncStorage  │
+│   (Auth +     │  │  (mood/stats) │
+│   user data)  │  └───────────────┘
+└───────────────┘
 
 ---
 
-## 🎭 Soul Modes
+## 🎭 Wellness Personas
 
-| Soul | Personality | Voice | Best For |
-|---|---|---|---|
-| 🌿 **Sage** | Wise, philosophical, Socratic | Slow & warm | Reflection, big decisions |
-| ⚡ **Spark** | Hype, energetic, celebratory | Fast & bright | Motivation, celebrations |
-| 🌊 **Zen** | Calm, non-judgmental, grounding | Soft & slow | Stress, anxiety, venting |
-| ◈ **Ghost** | Minimal, direct, no fluff | Neutral | Quick answers, focus |
+| Persona | Personality | Best For |
+|---|---|---|
+| 🌿 **Sage** | Wise, philosophical, Socratic | Reflection, big decisions |
+| ⚡ **Spark** | Hype, energetic, celebratory | Motivation, confidence |
+| 🌊 **Zen** | Calm, non-judgmental, grounding | Stress, anxiety, venting |
+| ◈ **Ghost** | Minimal, direct, no fluff | Quick clarity, focus |
 
 ---
 
@@ -99,8 +96,11 @@ Journal
 |---|---|
 | Framework | React Native + Expo SDK 54 |
 | Navigation | React Navigation v7 |
-| AI | Google Gemini 2.0 Flash via REST API |
-| Storage | AsyncStorage (on-device, private) |
+| Auth | Supabase (email/password) |
+| AI | Groq API — LLaMA 3.3 70B |
+| Backend | Node.js + Express (API proxy) |
+| Process Manager | pm2 |
+| Storage | AsyncStorage (mood + stats) |
 | Voice | expo-speech (TTS) |
 | Haptics | expo-haptics |
 | Fonts | Playfair Display, Lato, Space Mono |
@@ -117,28 +117,52 @@ cd real_time_chatbot
 npm install
 ```
 
-### 2. Set your Gemini API key
+### 2. Set up environment variables
 Create a `.env` file in the root:
-```
-EXPO_PUBLIC_GEMINI_KEY=your_gemini_api_key_here
-```
-Get a free key at [aistudio.google.com](https://aistudio.google.com)
+EXPO_PUBLIC_SUPABASE_URL=your_supabase_url
+EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 
-### 3. Run on your phone
+### 3. Set up the backend
 ```bash
-npx expo start --clear
+cd ../lumaid-backend
+npm install
 ```
-Scan the QR code with **Expo Go** on your phone.
+
+Create a `.env` file in `lumaid-backend/`:
+GROQ_KEY=your_groq_api_key
+
+Start the backend:
+```bash
+node server.js
+# or with pm2:
+pm2 start server.js --name lumaid-backend
+```
+
+### 4. Update your IP in constants.js
+In `constants.js`, set your local IP:
+```javascript
+const BACKEND_URL = __DEV__
+  ? 'http://YOUR_LOCAL_IP:3001'
+  : 'https://your-production-backend.com';
+```
+
+### 5. Run on your phone
+```bash
+npx expo start
+```
+Scan the QR code with your iPhone camera.
 
 ---
 
 ## 🔮 Roadmap
 
-- [ ] Whisper Mode — private voice journaling with Lumaid summaries
-- [ ] Memory Anchors — Lumaid proactively follows up on things you mention
-- [ ] Multi-model support (Claude, GPT-4o alongside Gemini)
-- [ ] Home screen widget for mood check-in
+- [ ] Custom Character Builder — create your own AI companion with name, avatar, and personality sliders
+- [ ] Persistent memory per character — remembers past conversations
+- [ ] Weekly life recap card — shareable mood summary with AI reflection
+- [ ] Voice input — speak instead of type (Whisper API)
+- [ ] Mood history timeline — calendar view of past moods
 - [ ] Streak achievements and milestones
+- [ ] Export weekly recap as image for Instagram/TikTok
 
 ---
 

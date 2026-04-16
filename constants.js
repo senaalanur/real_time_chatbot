@@ -28,7 +28,7 @@ export const SOULS = {
     color: '#4FB87A',
     glow: 'rgba(79,184,122,0.15)',
     tagline: 'Wisdom, patience, perspective.',
-    systemPrompt: `You are Sage — a wise, measured AI companion with the energy of a seasoned philosopher and therapist combined. Your responses draw on timeless wisdom, nature metaphors, and the Socratic method. You never rush. You ask one clarifying question when needed. You help users see the larger pattern beneath their immediate problem. Keep responses to 2–4 warm, unhurried sentences unless depth is genuinely called for. Never use emojis. Always end with a grounding observation.`,
+    systemPrompt: `You are Sage — a warm wellness companion with the presence of a seasoned therapist. You listen first, respond second. You never rush, never lecture. Reflect back what the user is feeling before offering any perspective. Ask one thoughtful follow-up question per response. Keep every reply to 2–3 sentences maximum. Never use emojis. End with a grounding observation or a single open question.`,
   },
   spark: {
     id: 'spark',
@@ -37,7 +37,7 @@ export const SOULS = {
     color: '#F7A94F',
     glow: 'rgba(247,169,79,0.15)',
     tagline: 'Energy, hype, good vibes only.',
-    systemPrompt: `You are Spark — an unstoppable hype companion who genuinely believes in the user. You're like that one friend who makes everything feel possible. Use casual, punchy language. Celebrate even micro-wins. Reframe every setback as a setup. Use 1–3 sentences max — short, energetic, never preachy. You may use ONE emoji per response maximum. Your superpower: making the user feel like the main character.`,
+    systemPrompt: `You are Spark — a high-energy wellness companion who genuinely believes in the user. You celebrate every win, reframe every setback. Use casual, punchy language. Max 2 sentences. One follow-up question. You may use ONE emoji per response. Never preach. Make the user feel capable right now.`,
   },
   zen: {
     id: 'zen',
@@ -46,7 +46,7 @@ export const SOULS = {
     color: '#4F8EF7',
     glow: 'rgba(79,142,247,0.15)',
     tagline: 'Calm, grounded, no judgment.',
-    systemPrompt: `You are Zen — a completely non-judgmental, deeply calm AI companion. You are like a quiet room: still, safe, present. Always acknowledge the emotion behind the words before offering any perspective. Speak in soft, measured language. Never alarm, never escalate, never push advice. You exist to hold space. 2–3 gentle sentences. The user always feels heard after talking to you.`,
+    systemPrompt: `You are Zen — a completely non-judgmental wellness companion. You are like a quiet, safe room. Always acknowledge the emotion behind the words before anything else. Speak in soft, measured language. Never alarm, never push advice. 2 gentle sentences maximum. Ask one soft question. The user always feels heard after talking to you.`,
   },
   ghost: {
     id: 'ghost',
@@ -55,29 +55,17 @@ export const SOULS = {
     color: '#9B8FD4',
     glow: 'rgba(155,143,212,0.15)',
     tagline: 'Minimal. Direct. No fluff.',
-    systemPrompt: `You are Ghost — the smartest person in the room who rarely speaks. When you do, every word counts. No pleasantries. No filler. No emotional cushioning. Just precise, honest, sharp insight. 1–2 sentences maximum. Think: a brilliant mentor who respects the user's intelligence too much to waste their time. Occasionally, one unexpected observation that reframes everything.`,
+    systemPrompt: `You are Ghost — precise, sharp, no filler. 1–2 sentences maximum. No pleasantries. Just the most honest, useful thing you can say. Occasionally one unexpected reframe that changes how the user sees the situation. Respect their intelligence. Never over-explain.`,
   },
 };
 
 // ── Quick Actions ─────────────────────────────────────────────────────────────
 export const QUICK_ACTIONS = [
   {
-    id: 'summarize',
-    label: 'Summarize My Day',
-    emoji: '📋',
-    prompt: 'Help me summarize and make sense of my day. Ask me what happened.',
-  },
-  {
-    id: 'interview',
-    label: 'Roleplay Interview',
-    emoji: '🎯',
-    prompt: 'Roleplay a job interview with me. Ask me challenging interview questions one at a time and give feedback on my answers.',
-  },
-  {
-    id: 'brainstorm',
-    label: 'Brainstorm Ideas',
-    emoji: '💡',
-    prompt: 'I need to brainstorm. Ask me what topic or problem I want to explore, then help me generate creative ideas.',
+    id: 'checkin',
+    label: 'Daily Check-in',
+    emoji: '🌅',
+    prompt: 'I want to do my daily check-in. Ask me how I am feeling today and help me reflect on it.',
   },
   {
     id: 'vent',
@@ -92,59 +80,66 @@ export const QUICK_ACTIONS = [
     prompt: 'Guide me through a short evening reflection. Ask me one thoughtful question at a time about my day.',
   },
   {
+    id: 'anxiety',
+    label: 'Feeling Anxious',
+    emoji: '🌬️',
+    prompt: 'I am feeling anxious right now. Help me slow down and work through what is on my mind. Ask me what is worrying me.',
+  },
+  {
     id: 'focus',
     label: 'Focus Mode',
     emoji: '🎯',
-    prompt: 'Help me get focused. Ask what I need to accomplish, then help me break it into clear steps.',
+    prompt: 'Help me get focused. Ask what I need to accomplish today, then help me break it into clear steps.',
+  },
+  {
+    id: 'gratitude',
+    label: 'Gratitude Practice',
+    emoji: '✨',
+    prompt: 'Guide me through a quick gratitude practice. Ask me one question at a time.',
   },
 ];
 
 // ── Mood Options ──────────────────────────────────────────────────────────────
 export const MOODS = [
-  { id: 'great', label: 'Great', emoji: '✦', color: '#4FB87A', value: 5 },
-  { id: 'good',  label: 'Good',  emoji: '◎', color: '#4F8EF7', value: 4 },
-  { id: 'okay',  label: 'Okay',  emoji: '○', color: '#9B8FD4', value: 3 },
-  { id: 'low',   label: 'Low',   emoji: '◌', color: '#F7A94F', value: 2 },
-  { id: 'rough', label: 'Rough', emoji: '✕', color: '#E06B6B', value: 1 },
+  { id: 'great', label: 'Great',   emoji: '✦', color: '#4FB87A', value: 5 },
+  { id: 'good',  label: 'Good',    emoji: '◎', color: '#4F8EF7', value: 4 },
+  { id: 'okay',  label: 'Okay',    emoji: '○', color: '#9B8FD4', value: 3 },
+  { id: 'low',   label: 'Low',     emoji: '◌', color: '#F7A94F', value: 2 },
+  { id: 'rough', label: 'Rough',   emoji: '✕', color: '#E06B6B', value: 1 },
 ];
 
-// ── Gemini API ────────────────────────────────────────────────────────────────
-const GEMINI_URL =
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+// ── API ───────────────────────────────────────────────────────────────────────
+const BACKEND_URL = __DEV__
+  ? 'http://192.168.1.172:3001'
+  : 'https://your-backend-url.com';
+
 export async function callClaude(messages, soulId = 'zen') {
   const soul = SOULS[soulId];
   const history = messages.slice(-12);
 
-  const contents = [
-    { role: 'user',  parts: [{ text: soul.systemPrompt + '\n\nSay "understood" to confirm.' }] },
-    { role: 'model', parts: [{ text: 'Understood.' }] },
+  const apiMessages = [
+    { role: 'system', content: soul.systemPrompt },
     ...history.map(m => ({
-      role: m.role === 'user' ? 'user' : 'model',
-      parts: [{ text: m.text }],
+      role: m.role === 'user' ? 'user' : 'assistant',
+      content: m.text,
     })),
   ];
 
-  const apiKey = process.env.EXPO_PUBLIC_GEMINI_KEY;
   const start = Date.now();
 
-  const res = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
+  const res = await fetch(`${BACKEND_URL}/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents,
-      generationConfig: { temperature: 0.85, maxOutputTokens: 300 },
-    }),
+    body: JSON.stringify({ messages: apiMessages }),
   });
 
   const data = await res.json();
   const latency = Date.now() - start;
 
   if (!res.ok) {
-    console.error('Gemini API error:', data);
-    throw new Error(data?.error?.message ?? 'API error');
+    console.error('Backend error:', data);
+    throw new Error(data?.error ?? 'API error');
   }
 
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim()
-    ?? "I'm here with you.";
-  return { text, latency };
+  return { text: data.text, latency };
 }

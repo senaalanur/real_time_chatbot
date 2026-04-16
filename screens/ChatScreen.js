@@ -12,7 +12,6 @@ import {
   Dimensions,
   FlatList,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   StyleSheet,
   Text,
@@ -30,7 +29,6 @@ export default function ChatScreen({ route, navigation }) {
   const quickActionPrompt = route.params?.quickActionPrompt ?? null;
   const soul = SOULS[soulId];
 
-  // ── State ──────────────────────────────────────────────────────────────────
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -38,7 +36,6 @@ export default function ChatScreen({ route, navigation }) {
   const [sessionLatencies, setSessionLatencies] = useState([]);
   const [showQuickActions, setShowQuickActions] = useState(false);
 
-  // ── Refs ───────────────────────────────────────────────────────────────────
   const flatRef = useRef(null);
   const fadeIn = useRef(new Animated.Value(0)).current;
   const typingAnim = useRef(new Animated.Value(0)).current;
@@ -51,11 +48,10 @@ export default function ChatScreen({ route, navigation }) {
     SpaceMono_400Regular,
   });
 
-  // ── Init: fresh session every time ────────────────────────────────────────
   useEffect(() => {
     const openings = {
-      sage:  "I'm here. Take a breath. What's weighing on your mind?",
-      spark: "Hey, let's GO! What are we working on today?!",
+      sage:  "I'm here. Take a breath. What's on your mind today?",
+      spark: "Hey! What are we tackling today?",
       zen:   "Hello. I'm with you. Whenever you're ready.",
       ghost: "Ready.",
     };
@@ -70,21 +66,19 @@ export default function ChatScreen({ route, navigation }) {
     setMessages([firstMsg]);
     Animated.timing(fadeIn, { toValue: 1, duration: 500, useNativeDriver: true }).start();
 
-    // If launched via a Quick Action, auto-send the prompt after a short delay
     if (quickActionPrompt) {
-      setTimeout(() => sendMessage(quickActionPrompt, [firstMsg]), 600);
+      setTimeout(() => sendMessage(quickActionPrompt, [firstMsg]), 800);
     }
 
     return () => Speech.stop();
   }, []);
 
-  // ── Typing indicator animation ─────────────────────────────────────────────
   useEffect(() => {
     if (isLoading) {
       Animated.loop(
         Animated.sequence([
-          Animated.timing(typingAnim, { toValue: 1, duration: 400, useNativeDriver: true }),
-          Animated.timing(typingAnim, { toValue: 0.3, duration: 400, useNativeDriver: true }),
+          Animated.timing(typingAnim, { toValue: 1, duration: 500, useNativeDriver: true }),
+          Animated.timing(typingAnim, { toValue: 0.3, duration: 500, useNativeDriver: true }),
         ])
       ).start();
     } else {
@@ -93,7 +87,6 @@ export default function ChatScreen({ route, navigation }) {
     }
   }, [isLoading]);
 
-  // ── Quick actions panel animation ─────────────────────────────────────────
   useEffect(() => {
     Animated.spring(quickActionsAnim, {
       toValue: showQuickActions ? 1 : 0,
@@ -103,7 +96,6 @@ export default function ChatScreen({ route, navigation }) {
     }).start();
   }, [showQuickActions]);
 
-  // ── Save stats ─────────────────────────────────────────────────────────────
   const saveStats = async (msgs) => {
     const statsRaw = await AsyncStorage.getItem(STATS_KEY);
     const stats = statsRaw ? JSON.parse(statsRaw) : { totalChats: 0 };
@@ -111,7 +103,6 @@ export default function ChatScreen({ route, navigation }) {
     await AsyncStorage.setItem(STATS_KEY, JSON.stringify(stats));
   };
 
-  // ── Core send function ─────────────────────────────────────────────────────
   const sendMessage = async (textOverride = null, msgsOverride = null) => {
     const text = (textOverride ?? input).trim();
     if (!text || isLoading) return;
@@ -134,7 +125,12 @@ export default function ChatScreen({ route, navigation }) {
     setTimeout(() => flatRef.current?.scrollToEnd({ animated: true }), 80);
 
     try {
+      // Thinking delay — makes responses feel considered, not instant
+      const thinkingDelay = 1200 + Math.random() * 800;
+      await new Promise(resolve => setTimeout(resolve, thinkingDelay));
+
       const { text: reply, latency } = await callClaude(withUser, soulId);
+
       const botMsg = {
         id: `b_${Date.now()}`,
         role: 'assistant',
@@ -146,15 +142,19 @@ export default function ChatScreen({ route, navigation }) {
       setMessages(final);
       setSessionLatencies(prev => [...prev, latency]);
       saveStats(final);
-      speakMessage(reply);
-    } catch {
+    } catch (err) {
+      const isNetworkError = err.message?.includes('Network request failed')
+        || err.message?.includes('fetch');
       setMessages(prev => [
         ...prev,
         {
           id: `err_${Date.now()}`,
           role: 'assistant',
-          text: "I lost the signal for a moment. Try again?",
+          text: isNetworkError
+            ? "Can't reach the server right now. Check your connection and try again."
+            : "Something went wrong. Try again?",
           timestamp: Date.now(),
+          isError: true,
         },
       ]);
     } finally {
@@ -163,12 +163,11 @@ export default function ChatScreen({ route, navigation }) {
     }
   };
 
-  // ── TTS ────────────────────────────────────────────────────────────────────
   const speakMessage = (text) => {
     Speech.stop();
     setIsSpeaking(true);
     Speech.speak(text, {
-      rate: soulId === 'spark' ? 1.15 : soulId === 'ghost' ? 1.0 : 0.88,
+      rate: soulId === 'spark' ? 1.1 : soulId === 'ghost' ? 1.0 : 0.88,
       pitch: soulId === 'spark' ? 1.1 : 1.0,
       onDone: () => setIsSpeaking(false),
       onError: () => setIsSpeaking(false),
@@ -186,8 +185,7 @@ export default function ChatScreen({ route, navigation }) {
 
   if (!fontsLoaded) return null;
 
-  // ── Message bubble renderer ────────────────────────────────────────────────
-  const renderMessage = ({ item, index }) => {
+  const renderMessage = ({ item }) => {
     const isUser = item.role === 'user';
     return (
       <Animated.View
@@ -208,20 +206,24 @@ export default function ChatScreen({ route, navigation }) {
           onPress={() => !isUser && toggleSpeak(item.text)}
           style={[
             styles.bubble,
-            isUser ? [styles.bubbleUser, { backgroundColor: soul.color }] : styles.bubbleBot,
+            isUser
+              ? [styles.bubbleUser, { backgroundColor: soul.color }]
+              : [styles.bubbleBot, { borderLeftColor: soul.color }],
+            item.isError && styles.bubbleError,
           ]}
         >
-          <Text style={[styles.bubbleText, isUser ? styles.bubbleTextUser : styles.bubbleTextBot]}>
+          <Text style={[
+            styles.bubbleText,
+            isUser ? styles.bubbleTextUser : styles.bubbleTextBot,
+            item.isError && { color: COLORS.danger },
+          ]}>
             {item.text}
           </Text>
-          {item.latency != null && (
-            <Text style={styles.latencyBadge}>⚡ {item.latency}ms</Text>
-          )}
         </TouchableOpacity>
 
         {isUser && (
           <View style={[styles.avatar, { backgroundColor: COLORS.surfaceUp }]}>
-            <Text style={styles.avatarEmoji}>👤</Text>
+            <Text style={styles.avatarEmoji}>○</Text>
           </View>
         )}
       </Animated.View>
@@ -233,7 +235,7 @@ export default function ChatScreen({ route, navigation }) {
       <View style={[styles.avatar, { backgroundColor: soul.glow }]}>
         <Text style={styles.avatarEmoji}>{soul.emoji}</Text>
       </View>
-      <View style={[styles.bubbleBot, styles.bubble, styles.typingBubble]}>
+      <View style={[styles.bubbleBot, styles.bubble, styles.typingBubble, { borderLeftColor: soul.color }]}>
         {[0, 1, 2].map(i => (
           <Animated.View
             key={i}
@@ -245,7 +247,7 @@ export default function ChatScreen({ route, navigation }) {
                 transform: [{
                   translateY: typingAnim.interpolate({
                     inputRange: [0.3, 1],
-                    outputRange: [0, i === 1 ? -4 : -2],
+                    outputRange: [0, i === 1 ? -5 : -2],
                   }),
                 }],
               },
@@ -256,7 +258,6 @@ export default function ChatScreen({ route, navigation }) {
     </View>
   );
 
-  // ── Quick Actions Sheet ────────────────────────────────────────────────────
   const QuickActionsSheet = () => (
     <Animated.View
       style={[
@@ -272,7 +273,7 @@ export default function ChatScreen({ route, navigation }) {
         },
       ]}
     >
-      <Text style={styles.quickSheetTitle}>QUICK ACTIONS</Text>
+      <Text style={styles.quickSheetTitle}>WELLNESS TOOLS</Text>
       <View style={styles.quickGrid}>
         {QUICK_ACTIONS.map(action => (
           <TouchableOpacity
@@ -291,51 +292,55 @@ export default function ChatScreen({ route, navigation }) {
     </Animated.View>
   );
 
-  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <KeyboardAvoidingView
       style={styles.root}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={0}
     >
-      {/* Ambient glow */}
       <Animated.View
         style={[styles.ambientGlow, { backgroundColor: soul.glow }]}
         pointerEvents="none"
       />
 
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => { Speech.stop(); navigation.goBack(); }} style={styles.backBtn}>
+        <TouchableOpacity
+          onPress={() => { Speech.stop(); navigation.goBack(); }}
+          style={styles.backBtn}
+        >
           <Text style={styles.backText}>←</Text>
         </TouchableOpacity>
 
         <View style={styles.headerCenter}>
-          <View style={[styles.headerAvatar, { backgroundColor: soul.glow, borderColor: soul.color + '50' }]}>
+          <View style={[styles.headerAvatar, {
+            backgroundColor: soul.glow,
+            borderColor: soul.color + '60',
+          }]}>
             <Text style={{ fontSize: 17 }}>{soul.emoji}</Text>
           </View>
           <View>
             <Text style={styles.headerName}>{soul.name}</Text>
-            {avgLatency ? (
-              <Text style={styles.headerSub}>avg {avgLatency}ms · {sessionLatencies.length} msg{sessionLatencies.length !== 1 ? 's' : ''}</Text>
-            ) : (
-              <Text style={styles.headerSub}>{soul.tagline}</Text>
-            )}
+            <Text style={styles.headerSub}>
+              {avgLatency
+                ? `${sessionLatencies.length} messages today`
+                : soul.tagline}
+            </Text>
           </View>
         </View>
 
         <TouchableOpacity
           style={styles.speakBtn}
           onPress={() => {
-            const last = messages.findLast(m => m.role === 'assistant');
+            const last = [...messages].reverse().find(m => m.role === 'assistant');
             if (last) toggleSpeak(last.text);
           }}
         >
-          <Text style={{ fontSize: 18 }}>{isSpeaking ? '🔊' : '🔇'}</Text>
+          <Text style={{ fontSize: 16 }}>{isSpeaking ? '🔊' : '🔇'}</Text>
         </TouchableOpacity>
       </View>
 
-      {/* ── Messages ───────────────────────────────────────────────────────── */}
+      {/* Messages */}
       <FlatList
         ref={flatRef}
         data={messages}
@@ -347,12 +352,10 @@ export default function ChatScreen({ route, navigation }) {
         ListFooterComponent={isLoading ? <TypingIndicator /> : null}
       />
 
-      {/* ── Quick Actions panel ─────────────────────────────────────────────── */}
       {showQuickActions && <QuickActionsSheet />}
 
-      {/* ── Input Bar ──────────────────────────────────────────────────────── */}
+      {/* Input Bar */}
       <View style={styles.inputBar}>
-        {/* Quick actions toggle */}
         <TouchableOpacity
           style={[styles.iconBtn, showQuickActions && { backgroundColor: soul.color + '25' }]}
           onPress={() => {
@@ -360,7 +363,7 @@ export default function ChatScreen({ route, navigation }) {
             setShowQuickActions(v => !v);
           }}
         >
-          <Text style={{ fontSize: 18, color: showQuickActions ? soul.color : COLORS.muted }}>⚡</Text>
+          <Text style={{ fontSize: 16, color: showQuickActions ? soul.color : COLORS.muted }}>✦</Text>
         </TouchableOpacity>
 
         <View style={styles.inputWrap}>
@@ -368,7 +371,7 @@ export default function ChatScreen({ route, navigation }) {
             style={styles.input}
             value={input}
             onChangeText={setInput}
-            placeholder={`Message ${soul.name}...`}
+            placeholder={`Talk to ${soul.name}...`}
             placeholderTextColor={COLORS.muted}
             multiline
             returnKeyType="send"
@@ -394,7 +397,6 @@ export default function ChatScreen({ route, navigation }) {
   );
 }
 
-// ── Styles ─────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.bg },
 
@@ -405,11 +407,10 @@ const styles = StyleSheet.create({
     width: width * 1.2,
     height: width * 0.8,
     borderRadius: width * 0.6,
-    opacity: 0.35,
+    opacity: 0.3,
     zIndex: 0,
   },
 
-  // Header
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -448,8 +449,8 @@ const styles = StyleSheet.create({
     color: COLORS.text,
   },
   headerSub: {
-    fontFamily: 'SpaceMono_400Regular',
-    fontSize: 9,
+    fontFamily: 'Lato_400Regular',
+    fontSize: 11,
     color: COLORS.muted,
     marginTop: 1,
   },
@@ -461,11 +462,10 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surfaceUp,
   },
 
-  // Messages
   msgList: {
     padding: 16,
     paddingBottom: 12,
-    gap: 10,
+    gap: 12,
   },
   msgRow: {
     flexDirection: 'row',
@@ -487,39 +487,36 @@ const styles = StyleSheet.create({
 
   bubble: {
     paddingHorizontal: 14,
-    paddingVertical: 11,
-    borderRadius: 18,
+    paddingVertical: 12,
+    borderRadius: 20,
     maxWidth: width * 0.68,
+  },
+  bubbleUser: {
+    borderBottomRightRadius: 4,
     shadowColor: '#000',
     shadowOpacity: 0.15,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 3 },
   },
-  bubbleUser: {
-    borderBottomRightRadius: 4,
-  },
   bubbleBot: {
     backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
+    borderLeftWidth: 3,
     borderBottomLeftRadius: 4,
+  },
+  bubbleError: {
+    borderColor: COLORS.danger + '40',
+    backgroundColor: COLORS.danger + '10',
   },
   bubbleText: {
     fontFamily: 'Lato_400Regular',
     fontSize: 15,
-    lineHeight: 23,
+    lineHeight: 24,
   },
   bubbleTextUser: { color: COLORS.white },
   bubbleTextBot: { color: COLORS.text },
 
-  latencyBadge: {
-    fontFamily: 'SpaceMono_400Regular',
-    fontSize: 9,
-    color: COLORS.muted,
-    marginTop: 6,
-  },
-
-  // Typing indicator
   typingBubble: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -532,7 +529,6 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
 
-  // Quick Actions
   quickSheet: {
     backgroundColor: COLORS.surface,
     borderTopWidth: 1,
@@ -545,7 +541,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Lato_700Bold',
     fontSize: 10,
     color: COLORS.muted,
-    letterSpacing: 0.12,
+    letterSpacing: 0.14,
     marginBottom: 10,
   },
   quickGrid: {
@@ -563,14 +559,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
   },
-  quickEmoji: { fontSize: 14 },
+  quickEmoji: { fontSize: 13 },
   quickLabel: {
     fontFamily: 'Lato_700Bold',
     fontSize: 12,
     color: COLORS.textSoft,
   },
 
-  // Input
   inputBar: {
     flexDirection: 'row',
     alignItems: 'flex-end',
@@ -594,9 +589,9 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.surfaceUp,
     borderWidth: 1.5,
     borderColor: COLORS.border,
-    borderRadius: 18,
+    borderRadius: 20,
     paddingHorizontal: 14,
-    paddingVertical: 9,
+    paddingVertical: 10,
     maxHeight: 120,
   },
   input: {
