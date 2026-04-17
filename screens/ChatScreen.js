@@ -24,9 +24,7 @@ import { COLORS, QUICK_ACTIONS, SOULS, callClaude } from '../constants';
 
 const { width } = Dimensions.get('window');
 const STATS_KEY = 'lumaid_stats';
-const BACKEND_URL = __DEV__
-  ? 'http://192.168.1.137:3001'
-  : 'https://lumaid-backend-production.up.railway.app';
+const BACKEND_URL = 'https://lumaid-backend-production.up.railway.app';
 
 async function callCharacter(messages, character) {
   const warmthDesc = character.warmth >= 7

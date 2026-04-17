@@ -19,9 +19,7 @@ import {
 import { COLORS, MOODS } from '../constants';
 
 const { width } = Dimensions.get('window');
-const BACKEND_URL = __DEV__
-  ? 'http://192.168.1.137:3001'
-  : 'https://lumaid-backend-production.up.railway.app';
+const BACKEND_URL = 'https://lumaid-backend-production.up.railway.app';
 
 export default function WeeklyRecapScreen({ navigation }) {
   const [moodData, setMoodData] = useState([]);

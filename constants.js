@@ -109,9 +109,7 @@ export const MOODS = [
 ];
 
 // ── API ───────────────────────────────────────────────────────────────────────
-const BACKEND_URL = __DEV__
-  ? 'http://192.168.1.137:3001'
-  : 'https://lumaid-backend-production.up.railway.app';
+const BACKEND_URL = 'https://lumaid-backend-production.up.railway.app';
 
 export async function callClaude(messages, soulId = 'zen') {
   const soul = SOULS[soulId];
