@@ -8,12 +8,12 @@ import {
   Animated,
   Dimensions,
   Easing,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  Platform,
 } from 'react-native';
 import { COLORS, MOODS, QUICK_ACTIONS, SOULS } from '../constants';
 
@@ -25,6 +25,7 @@ export default function HomeScreen({ navigation }) {
   const [todayMood, setTodayMood] = useState(null);
   const [stats, setStats] = useState({ totalChats: 0 });
   const [showSoulPicker, setShowSoulPicker] = useState(false);
+  const [streak, setStreak] = useState(0);
 
   const orbPulse = useRef(new Animated.Value(1)).current;
   const orbGlow  = useRef(new Animated.Value(0.5)).current;
@@ -56,6 +57,7 @@ export default function HomeScreen({ navigation }) {
     const userRaw = await AsyncStorage.getItem('lumaid_user');
     const statsRaw = await AsyncStorage.getItem('lumaid_stats');
     const moodRaw = await AsyncStorage.getItem('lumaid_today_mood');
+    const histRaw = await AsyncStorage.getItem('lumaid_mood_history');
 
     if (userRaw) {
       const u = JSON.parse(userRaw);
@@ -66,6 +68,17 @@ export default function HomeScreen({ navigation }) {
     if (moodRaw) {
       const m = JSON.parse(moodRaw);
       if (m.date === new Date().toDateString()) setTodayMood(m.moodId);
+    }
+    if (histRaw) {
+      const hist = JSON.parse(histRaw);
+      let s = 0;
+      const daySet = new Set(hist.map(e => e.date));
+      let d = new Date();
+      while (daySet.has(d.toDateString())) {
+        s++;
+        d.setDate(d.getDate() - 1);
+      }
+      setStreak(s);
     }
   };
 
@@ -103,10 +116,18 @@ export default function HomeScreen({ navigation }) {
     await AsyncStorage.setItem('lumaid_today_mood', JSON.stringify(entry));
     const histRaw = await AsyncStorage.getItem('lumaid_mood_history');
     const hist = histRaw ? JSON.parse(histRaw) : [];
-    // Avoid duplicate same-day entries
     const filtered = hist.filter(e => e.date !== entry.date);
     filtered.push(entry);
     await AsyncStorage.setItem('lumaid_mood_history', JSON.stringify(filtered));
+    // Recalculate streak
+    let s = 0;
+    const daySet = new Set([...filtered.map(e => e.date)]);
+    let d = new Date();
+    while (daySet.has(d.toDateString())) {
+      s++;
+      d.setDate(d.getDate() - 1);
+    }
+    setStreak(s);
   };
 
   const greeting = () => {
@@ -118,10 +139,7 @@ export default function HomeScreen({ navigation }) {
 
   const goToChat = (quickActionPrompt = null) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    navigation.navigate('Chat', {
-      soul: soul.id,
-      quickActionPrompt,
-    });
+    navigation.navigate('Chat', { soul: soul.id, quickActionPrompt });
   };
 
   if (!fontsLoaded) return null;
@@ -130,7 +148,6 @@ export default function HomeScreen({ navigation }) {
 
   return (
     <View style={styles.root}>
-      {/* Ambient glow */}
       <Animated.View style={[styles.ambientGlow, {
         backgroundColor: soul.glow,
         opacity: orbGlow,
@@ -142,7 +159,7 @@ export default function HomeScreen({ navigation }) {
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
       >
-        {/* ── Header ──────────────────────────────────────────────────────── */}
+        {/* Header */}
         <View style={styles.header}>
           <View>
             <Text style={styles.greeting}>{greeting()}</Text>
@@ -166,7 +183,17 @@ export default function HomeScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        {/* ── Soul Picker ─────────────────────────────────────────────────── */}
+        {/* Streak banner */}
+        {streak >= 2 && (
+          <View style={[styles.streakBanner, { borderColor: soul.color + '40', backgroundColor: soul.color + '12' }]}>
+            <Text style={styles.streakEmoji}>✦</Text>
+            <Text style={[styles.streakText, { color: soul.color }]}>
+              {streak} day streak — keep it going
+            </Text>
+          </View>
+        )}
+
+        {/* Soul Picker */}
         {showSoulPicker && (
           <Animated.View style={[styles.soulPicker, {
             opacity: soulPickerAnim,
@@ -204,7 +231,7 @@ export default function HomeScreen({ navigation }) {
           </Animated.View>
         )}
 
-        {/* ── Central Orb ─────────────────────────────────────────────────── */}
+        {/* Central Orb */}
         <TouchableOpacity
           activeOpacity={0.88}
           onPress={() => goToChat()}
@@ -228,9 +255,9 @@ export default function HomeScreen({ navigation }) {
           </View>
         </TouchableOpacity>
 
-        {/* ── Quick Actions ────────────────────────────────────────────────── */}
+        {/* Wellness Tools */}
         <View style={styles.card}>
-          <Text style={styles.cardLabel}>QUICK ACTIONS</Text>
+          <Text style={styles.cardLabel}>WELLNESS TOOLS</Text>
           <View style={styles.quickGrid}>
             {QUICK_ACTIONS.map(action => (
               <TouchableOpacity
@@ -245,7 +272,7 @@ export default function HomeScreen({ navigation }) {
           </View>
         </View>
 
-        {/* ── Mood Check-in ────────────────────────────────────────────────── */}
+        {/* Mood Check-in */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardLabel}>HOW ARE YOU TODAY?</Text>
@@ -260,12 +287,18 @@ export default function HomeScreen({ navigation }) {
               <View style={[styles.moodDoneIcon, { backgroundColor: currentMood?.color + '18' }]}>
                 <Text style={{ fontSize: 28 }}>{currentMood?.emoji}</Text>
               </View>
-              <View>
+              <View style={{ flex: 1 }}>
                 <Text style={styles.moodDoneLabel}>Feeling</Text>
                 <Text style={[styles.moodDoneText, { color: currentMood?.color }]}>
                   {currentMood?.label}
                 </Text>
               </View>
+              {streak > 0 && (
+                <View style={styles.streakBadge}>
+                  <Text style={styles.streakBadgeNum}>{streak}</Text>
+                  <Text style={styles.streakBadgeLabel}>day{streak !== 1 ? 's' : ''}</Text>
+                </View>
+              )}
             </View>
           ) : (
             <View style={styles.moodRow}>
@@ -281,7 +314,7 @@ export default function HomeScreen({ navigation }) {
           )}
         </View>
 
-        {/* ── Action Cards ─────────────────────────────────────────────────── */}
+        {/* Action Cards row */}
         <View style={styles.actionsRow}>
           <TouchableOpacity
             style={[styles.actionCard, { borderColor: soul.color + '35' }]}
@@ -306,14 +339,59 @@ export default function HomeScreen({ navigation }) {
           </TouchableOpacity>
         </View>
 
-        {/* ── Memory Card ──────────────────────────────────────────────────── */}
+        {/* Characters Card */}
+        <TouchableOpacity
+          style={[styles.card, styles.charactersCard]}
+          onPress={() => navigation.navigate('Characters')}
+        >
+          <View style={styles.navCardInner}>
+            <View style={[styles.actionIconWrap, { backgroundColor: COLORS.accentSoft, marginBottom: 0, marginRight: 14 }]}>
+              <Text style={styles.actionIcon}>✦</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.actionTitle}>My Characters</Text>
+              <Text style={styles.actionSub}>Create & talk to your AI companions</Text>
+            </View>
+            <Text style={[styles.navArrow, { color: COLORS.accent }]}>→</Text>
+          </View>
+        </TouchableOpacity>
+
+        {/* Weekly Recap Card */}
+        <TouchableOpacity
+          style={[styles.card, styles.recapCard]}
+          onPress={() => navigation.navigate('WeeklyRecap')}
+        >
+          <View style={styles.navCardInner}>
+            <View style={[styles.actionIconWrap, { backgroundColor: COLORS.success + '20', marginBottom: 0, marginRight: 14 }]}>
+              <Text style={styles.actionIcon}>📊</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.actionTitle}>Weekly Recap</Text>
+              <Text style={styles.actionSub}>Your mood summary + AI reflection</Text>
+            </View>
+            <Text style={[styles.navArrow, { color: COLORS.success }]}>→</Text>
+          </View>
+        </TouchableOpacity>
+
+        {/* Journey Card */}
         <View style={styles.card}>
           <Text style={styles.cardLabel}>YOUR JOURNEY</Text>
-          <Text style={styles.memoryText}>
-            {stats.totalChats === 0
-              ? "Start your first conversation — Lumaid is ready to listen."
-              : `${stats.totalChats} exchange${stats.totalChats !== 1 ? 's' : ''} so far. Every session starts fresh — your privacy, always.`}
-          </Text>
+          <View style={styles.journeyRow}>
+            <View style={styles.journeyStat}>
+              <Text style={styles.journeyNum}>{stats.totalChats}</Text>
+              <Text style={styles.journeyLabel}>messages</Text>
+            </View>
+            <View style={styles.journeyDivider} />
+            <View style={styles.journeyStat}>
+              <Text style={styles.journeyNum}>{streak}</Text>
+              <Text style={styles.journeyLabel}>day streak</Text>
+            </View>
+            <View style={styles.journeyDivider} />
+            <View style={styles.journeyStat}>
+              <Text style={[styles.journeyNum, { color: soul.color }]}>{soul.emoji}</Text>
+              <Text style={styles.journeyLabel}>{soul.name}</Text>
+            </View>
+          </View>
         </View>
 
         <View style={{ height: 48 }} />
@@ -338,12 +416,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
   },
 
-  // Header
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   greeting: {
     fontFamily: 'Lato_400Regular',
@@ -375,7 +452,22 @@ const styles = StyleSheet.create({
     fontFamily: 'Lato_700Bold',
   },
 
-  // Soul Picker
+  streakBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    marginBottom: 14,
+  },
+  streakEmoji: { fontSize: 13 },
+  streakText: {
+    fontFamily: 'Lato_700Bold',
+    fontSize: 13,
+  },
+
   soulPicker: {
     backgroundColor: COLORS.surface,
     borderWidth: 1,
@@ -427,7 +519,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
 
-  // Orb
   orbContainer: { alignItems: 'center', marginVertical: 22 },
   orbOuter: {
     width: 176, height: 176,
@@ -474,7 +565,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
 
-  // Cards
   card: {
     backgroundColor: COLORS.surface,
     borderWidth: 1,
@@ -506,7 +596,6 @@ const styles = StyleSheet.create({
     color: COLORS.accent,
   },
 
-  // Quick Actions grid
   quickGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -529,7 +618,6 @@ const styles = StyleSheet.create({
     color: COLORS.textSoft,
   },
 
-  // Mood
   moodRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -569,8 +657,24 @@ const styles = StyleSheet.create({
     fontFamily: 'Lato_700Bold',
     fontSize: 20,
   },
+  streakBadge: {
+    alignItems: 'center',
+    backgroundColor: COLORS.surfaceUp,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  streakBadgeNum: {
+    fontFamily: 'PlayfairDisplay_700Bold',
+    fontSize: 22,
+    color: COLORS.text,
+  },
+  streakBadgeLabel: {
+    fontFamily: 'Lato_400Regular',
+    fontSize: 10,
+    color: COLORS.muted,
+  },
 
-  // Action Cards
   actionsRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
   actionCard: {
     flex: 1,
@@ -604,11 +708,42 @@ const styles = StyleSheet.create({
     color: COLORS.muted,
   },
 
-  // Memory
-  memoryText: {
+  charactersCard: {
+    borderColor: COLORS.accent + '40',
+    backgroundColor: COLORS.accentSoft,
+  },
+  recapCard: {
+    borderColor: COLORS.success + '40',
+    backgroundColor: COLORS.success + '10',
+  },
+  navCardInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  navArrow: {
+    fontSize: 18,
+    fontFamily: 'Lato_700Bold',
+  },
+
+  journeyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+  },
+  journeyStat: { alignItems: 'center', gap: 4 },
+  journeyNum: {
+    fontFamily: 'PlayfairDisplay_700Bold',
+    fontSize: 28,
+    color: COLORS.text,
+  },
+  journeyLabel: {
     fontFamily: 'Lato_400Regular',
-    fontSize: 14,
-    color: COLORS.textSoft,
-    lineHeight: 22,
+    fontSize: 11,
+    color: COLORS.muted,
+  },
+  journeyDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: COLORS.border,
   },
 });

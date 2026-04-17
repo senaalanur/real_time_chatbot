@@ -19,16 +19,66 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { supabase } from '../lib/supabase';
 import { COLORS, QUICK_ACTIONS, SOULS, callClaude } from '../constants';
 
 const { width } = Dimensions.get('window');
 const STATS_KEY = 'lumaid_stats';
+const BACKEND_URL = __DEV__
+  ? 'http://192.168.1.137:3001'
+  : 'https://your-backend-url.com';
+
+async function callCharacter(messages, character) {
+  const warmthDesc = character.warmth >= 7
+    ? 'deeply empathetic and warm, like a close friend'
+    : character.warmth <= 3
+    ? 'professional and objective'
+    : 'balanced between warmth and objectivity';
+
+  const directnessDesc = character.directness >= 7
+    ? 'very direct and honest, saying exactly what you think'
+    : character.directness <= 3
+    ? 'gentle and careful with words'
+    : 'balanced between honesty and tact';
+
+  const energyDesc = character.energy >= 7
+    ? 'enthusiastic and high energy'
+    : character.energy <= 3
+    ? 'calm and soft-spoken'
+    : 'steady and consistent';
+
+  const systemPrompt = `You are ${character.name} — a personal AI wellness companion. Your personality is ${warmthDesc}, ${directnessDesc}, and ${energyDesc}. You listen deeply before responding. You never lecture. You ask one thoughtful follow-up question per response. Keep every reply to 2–3 sentences maximum. The user always feels genuinely heard after talking to you.`;
+
+  const history = messages.slice(-12);
+  const apiMessages = [
+    { role: 'system', content: systemPrompt },
+    ...history.map(m => ({
+      role: m.role === 'user' ? 'user' : 'assistant',
+      content: m.text,
+    })),
+  ];
+
+  const start = Date.now();
+  const res = await fetch(`${BACKEND_URL}/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages: apiMessages }),
+  });
+
+  const data = await res.json();
+  const latency = Date.now() - start;
+
+  if (!res.ok) throw new Error(data?.error ?? 'API error');
+  return { text: data.text, latency };
+}
 
 export default function ChatScreen({ route, navigation }) {
   const soulId = route.params?.soul ?? 'zen';
+  const characterId = route.params?.characterId ?? null;
   const quickActionPrompt = route.params?.quickActionPrompt ?? null;
-  const soul = SOULS[soulId];
 
+  const [character, setCharacter] = useState(null);
+  const [soul] = useState(SOULS[soulId] ?? SOULS.zen);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -48,18 +98,53 @@ export default function ChatScreen({ route, navigation }) {
     SpaceMono_400Regular,
   });
 
+  // Load character + conversation history from Supabase
   useEffect(() => {
-    const openings = {
-      sage:  "I'm here. Take a breath. What's on your mind today?",
-      spark: "Hey! What are we tackling today?",
-      zen:   "Hello. I'm with you. Whenever you're ready.",
-      ghost: "Ready.",
-    };
+    if (characterId) {
+      supabase
+        .from('characters')
+        .select('*')
+        .eq('id', characterId)
+        .single()
+        .then(({ data }) => {
+          if (data) setCharacter(data);
+        });
+
+      supabase
+        .from('conversations')
+        .select('*')
+        .eq('character_id', characterId)
+        .order('created_at', { ascending: true })
+        .limit(20)
+        .then(({ data }) => {
+          if (data && data.length > 0) {
+            const loaded = data.map(row => ({
+              id: row.id,
+              role: row.role,
+              text: row.content,
+              timestamp: new Date(row.created_at).getTime(),
+            }));
+            setMessages(loaded);
+          }
+        });
+    }
+  }, [characterId]);
+
+  // Init messages once we know who we're talking to
+  useEffect(() => {
+    if (characterId && !character) return;
 
     const firstMsg = {
       id: 'init',
       role: 'assistant',
-      text: openings[soulId] ?? 'Hello.',
+      text: character
+        ? `Hey, I'm ${character.name}. What's on your mind?`
+        : {
+            sage: "I'm here. Take a breath. What's on your mind today?",
+            spark: "Hey! What are we tackling today?",
+            zen: "Hello. I'm with you. Whenever you're ready.",
+            ghost: "Ready.",
+          }[soulId] ?? 'Hello.',
       timestamp: Date.now(),
     };
 
@@ -71,7 +156,7 @@ export default function ChatScreen({ route, navigation }) {
     }
 
     return () => Speech.stop();
-  }, []);
+  }, [character, characterId]);
 
   useEffect(() => {
     if (isLoading) {
@@ -103,6 +188,26 @@ export default function ChatScreen({ route, navigation }) {
     await AsyncStorage.setItem(STATS_KEY, JSON.stringify(stats));
   };
 
+  const saveMessage = async (role, content) => {
+    if (!characterId) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    await supabase.from('conversations').insert({
+      user_id: user.id,
+      character_id: characterId,
+      soul_id: null,
+      role,
+      content,
+    });
+  };
+
+  const activeColor = character ? character.color : soul.color;
+  const activeGlow = character ? character.color + '25' : soul.glow;
+  const activeName = character ? character.name : soul.name;
+  const activeInitial = character ? character.name[0].toUpperCase() : null;
+  const activeTagline = character
+    ? `Warmth ${character.warmth} · Energy ${character.energy}`
+    : soul.tagline;
+
   const sendMessage = async (textOverride = null, msgsOverride = null) => {
     const text = (textOverride ?? input).trim();
     if (!text || isLoading) return;
@@ -125,11 +230,12 @@ export default function ChatScreen({ route, navigation }) {
     setTimeout(() => flatRef.current?.scrollToEnd({ animated: true }), 80);
 
     try {
-      // Thinking delay — makes responses feel considered, not instant
       const thinkingDelay = 1200 + Math.random() * 800;
       await new Promise(resolve => setTimeout(resolve, thinkingDelay));
 
-      const { text: reply, latency } = await callClaude(withUser, soulId);
+      const { text: reply, latency } = character
+        ? await callCharacter(withUser, character)
+        : await callClaude(withUser, soulId);
 
       const botMsg = {
         id: `b_${Date.now()}`,
@@ -142,6 +248,8 @@ export default function ChatScreen({ route, navigation }) {
       setMessages(final);
       setSessionLatencies(prev => [...prev, latency]);
       saveStats(final);
+      saveMessage('user', text);
+      saveMessage('assistant', reply);
     } catch (err) {
       const isNetworkError = err.message?.includes('Network request failed')
         || err.message?.includes('fetch');
@@ -167,8 +275,8 @@ export default function ChatScreen({ route, navigation }) {
     Speech.stop();
     setIsSpeaking(true);
     Speech.speak(text, {
-      rate: soulId === 'spark' ? 1.1 : soulId === 'ghost' ? 1.0 : 0.88,
-      pitch: soulId === 'spark' ? 1.1 : 1.0,
+      rate: 0.9,
+      pitch: 1.0,
       onDone: () => setIsSpeaking(false),
       onError: () => setIsSpeaking(false),
     });
@@ -184,6 +292,13 @@ export default function ChatScreen({ route, navigation }) {
     : null;
 
   if (!fontsLoaded) return null;
+  if (characterId && !character) {
+    return (
+      <View style={[styles.root, { alignItems: 'center', justifyContent: 'center' }]}>
+        <ActivityIndicator color={COLORS.accent} />
+      </View>
+    );
+  }
 
   const renderMessage = ({ item }) => {
     const isUser = item.role === 'user';
@@ -196,22 +311,22 @@ export default function ChatScreen({ route, navigation }) {
         ]}
       >
         {!isUser && (
-          <View style={[styles.avatar, { backgroundColor: soul.glow }]}>
-            <Text style={styles.avatarEmoji}>{soul.emoji}</Text>
+          <View style={[styles.avatar, { backgroundColor: activeGlow }]}>
+            {activeInitial ? (
+              <Text style={[styles.avatarInitial, { color: activeColor }]}>{activeInitial}</Text>
+            ) : (
+              <Text style={styles.avatarEmoji}>{soul.emoji}</Text>
+            )}
           </View>
         )}
 
-        <TouchableOpacity
-          activeOpacity={isUser ? 1 : 0.75}
-          onPress={() => !isUser && toggleSpeak(item.text)}
-          style={[
-            styles.bubble,
-            isUser
-              ? [styles.bubbleUser, { backgroundColor: soul.color }]
-              : [styles.bubbleBot, { borderLeftColor: soul.color }],
-            item.isError && styles.bubbleError,
-          ]}
-        >
+        <View style={[
+          styles.bubble,
+          isUser
+            ? [styles.bubbleUser, { backgroundColor: activeColor }]
+            : [styles.bubbleBot, { borderLeftColor: activeColor }],
+          item.isError && styles.bubbleError,
+        ]}>
           <Text style={[
             styles.bubbleText,
             isUser ? styles.bubbleTextUser : styles.bubbleTextBot,
@@ -219,7 +334,18 @@ export default function ChatScreen({ route, navigation }) {
           ]}>
             {item.text}
           </Text>
-        </TouchableOpacity>
+          {item.isError && (
+            <TouchableOpacity
+              style={styles.retryBtn}
+              onPress={() => {
+                const lastUserMsg = [...messages].reverse().find(m => m.role === 'user');
+                if (lastUserMsg) sendMessage(lastUserMsg.text);
+              }}
+            >
+              <Text style={styles.retryText}>Tap to retry →</Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
         {isUser && (
           <View style={[styles.avatar, { backgroundColor: COLORS.surfaceUp }]}>
@@ -232,17 +358,21 @@ export default function ChatScreen({ route, navigation }) {
 
   const TypingIndicator = () => (
     <View style={[styles.msgRow, styles.msgRowBot]}>
-      <View style={[styles.avatar, { backgroundColor: soul.glow }]}>
-        <Text style={styles.avatarEmoji}>{soul.emoji}</Text>
+      <View style={[styles.avatar, { backgroundColor: activeGlow }]}>
+        {activeInitial ? (
+          <Text style={[styles.avatarInitial, { color: activeColor }]}>{activeInitial}</Text>
+        ) : (
+          <Text style={styles.avatarEmoji}>{soul.emoji}</Text>
+        )}
       </View>
-      <View style={[styles.bubbleBot, styles.bubble, styles.typingBubble, { borderLeftColor: soul.color }]}>
+      <View style={[styles.bubbleBot, styles.bubble, styles.typingBubble, { borderLeftColor: activeColor }]}>
         {[0, 1, 2].map(i => (
           <Animated.View
             key={i}
             style={[
               styles.dot,
               {
-                backgroundColor: soul.color,
+                backgroundColor: activeColor,
                 opacity: typingAnim,
                 transform: [{
                   translateY: typingAnim.interpolate({
@@ -278,7 +408,7 @@ export default function ChatScreen({ route, navigation }) {
         {QUICK_ACTIONS.map(action => (
           <TouchableOpacity
             key={action.id}
-            style={[styles.quickCard, { borderColor: soul.color + '40' }]}
+            style={[styles.quickCard, { borderColor: activeColor + '40' }]}
             onPress={() => {
               setShowQuickActions(false);
               sendMessage(action.prompt);
@@ -299,7 +429,7 @@ export default function ChatScreen({ route, navigation }) {
       keyboardVerticalOffset={0}
     >
       <Animated.View
-        style={[styles.ambientGlow, { backgroundColor: soul.glow }]}
+        style={[styles.ambientGlow, { backgroundColor: activeGlow }]}
         pointerEvents="none"
       />
 
@@ -314,17 +444,19 @@ export default function ChatScreen({ route, navigation }) {
 
         <View style={styles.headerCenter}>
           <View style={[styles.headerAvatar, {
-            backgroundColor: soul.glow,
-            borderColor: soul.color + '60',
+            backgroundColor: activeGlow,
+            borderColor: activeColor + '60',
           }]}>
-            <Text style={{ fontSize: 17 }}>{soul.emoji}</Text>
+            {activeInitial ? (
+              <Text style={[styles.headerAvatarInitial, { color: activeColor }]}>{activeInitial}</Text>
+            ) : (
+              <Text style={{ fontSize: 17 }}>{soul.emoji}</Text>
+            )}
           </View>
           <View>
-            <Text style={styles.headerName}>{soul.name}</Text>
+            <Text style={styles.headerName}>{activeName}</Text>
             <Text style={styles.headerSub}>
-              {avgLatency
-                ? `${sessionLatencies.length} messages today`
-                : soul.tagline}
+              {avgLatency ? `${sessionLatencies.length} messages today` : activeTagline}
             </Text>
           </View>
         </View>
@@ -357,13 +489,13 @@ export default function ChatScreen({ route, navigation }) {
       {/* Input Bar */}
       <View style={styles.inputBar}>
         <TouchableOpacity
-          style={[styles.iconBtn, showQuickActions && { backgroundColor: soul.color + '25' }]}
+          style={[styles.iconBtn, showQuickActions && { backgroundColor: activeColor + '25' }]}
           onPress={() => {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
             setShowQuickActions(v => !v);
           }}
         >
-          <Text style={{ fontSize: 16, color: showQuickActions ? soul.color : COLORS.muted }}>✦</Text>
+          <Text style={{ fontSize: 16, color: showQuickActions ? activeColor : COLORS.muted }}>✦</Text>
         </TouchableOpacity>
 
         <View style={styles.inputWrap}>
@@ -371,7 +503,7 @@ export default function ChatScreen({ route, navigation }) {
             style={styles.input}
             value={input}
             onChangeText={setInput}
-            placeholder={`Talk to ${soul.name}...`}
+            placeholder={`Talk to ${activeName}...`}
             placeholderTextColor={COLORS.muted}
             multiline
             returnKeyType="send"
@@ -383,7 +515,7 @@ export default function ChatScreen({ route, navigation }) {
         <TouchableOpacity
           style={[
             styles.sendBtn,
-            { backgroundColor: input.trim() ? soul.color : COLORS.border },
+            { backgroundColor: input.trim() ? activeColor : COLORS.border },
           ]}
           onPress={() => sendMessage()}
           disabled={isLoading || !input.trim()}
@@ -443,6 +575,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  headerAvatarInitial: {
+    fontFamily: 'Lato_700Bold',
+    fontSize: 16,
+  },
   headerName: {
     fontFamily: 'Lato_700Bold',
     fontSize: 15,
@@ -484,6 +620,10 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   avatarEmoji: { fontSize: 15 },
+  avatarInitial: {
+    fontFamily: 'Lato_700Bold',
+    fontSize: 14,
+  },
 
   bubble: {
     paddingHorizontal: 14,
@@ -516,6 +656,18 @@ const styles = StyleSheet.create({
   },
   bubbleTextUser: { color: COLORS.white },
   bubbleTextBot: { color: COLORS.text },
+
+  retryBtn: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.danger + '30',
+  },
+  retryText: {
+    fontFamily: 'Lato_700Bold',
+    fontSize: 12,
+    color: COLORS.danger,
+  },
 
   typingBubble: {
     flexDirection: 'row',
