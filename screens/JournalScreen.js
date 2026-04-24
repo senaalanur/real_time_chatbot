@@ -7,6 +7,7 @@ import {
   Animated,
   Dimensions,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -22,11 +23,7 @@ export default function JournalScreen({ navigation }) {
   const [stats, setStats] = useState({ avg: 0, best: null, streak: 0 });
   const fadeIn = useRef(new Animated.Value(0)).current;
 
-  const [fontsLoaded] = useFonts({
-    PlayfairDisplay_700Bold,
-    Lato_400Regular,
-    Lato_700Bold,
-  });
+  const [fontsLoaded] = useFonts({ PlayfairDisplay_700Bold, Lato_400Regular, Lato_700Bold });
 
   useEffect(() => {
     loadHistory();
@@ -42,7 +39,6 @@ export default function JournalScreen({ navigation }) {
       .filter(e => now - e.timestamp < 14 * 24 * 60 * 60 * 1000)
       .sort((a, b) => a.timestamp - b.timestamp);
     setHistory(recent);
-
     if (recent.length) {
       const vals = recent.map(e => MOODS.find(m => m.id === e.moodId)?.value ?? 3);
       const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
@@ -50,10 +46,7 @@ export default function JournalScreen({ navigation }) {
       let streak = 0;
       const daySet = new Set(recent.map(e => e.date));
       let d = new Date();
-      while (daySet.has(d.toDateString())) {
-        streak++;
-        d.setDate(d.getDate() - 1);
-      }
+      while (daySet.has(d.toDateString())) { streak++; d.setDate(d.getDate() - 1); }
       setStats({ avg: avg.toFixed(1), best, streak });
     }
   };
@@ -67,11 +60,7 @@ export default function JournalScreen({ navigation }) {
       d.setDate(d.getDate() - i);
       const dateStr = d.toDateString();
       const entry = history.find(e => e.date === dateStr);
-      days.push({
-        dateStr,
-        label: d.toLocaleDateString('en', { weekday: 'short' }).slice(0, 1),
-        entry,
-      });
+      days.push({ dateStr, label: d.toLocaleDateString('en', { weekday: 'short' }).slice(0, 1), entry });
     }
     return days;
   })();
@@ -80,11 +69,9 @@ export default function JournalScreen({ navigation }) {
 
   return (
     <View style={styles.root}>
-      <Animated.ScrollView
-        style={{ opacity: fadeIn }}
-        contentContainerStyle={styles.scroll}
-        showsVerticalScrollIndicator={false}
-      >
+      <View style={[styles.blobTop, { backgroundColor: COLORS.accentGlow }]} />
+      <Animated.ScrollView style={{ opacity: fadeIn }} contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+
         {/* Header */}
         <View style={styles.header}>
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
@@ -96,24 +83,20 @@ export default function JournalScreen({ navigation }) {
 
         {/* Stats Row */}
         <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{stats.avg || '—'}</Text>
-            <Text style={styles.statLabel}>AVG MOOD</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statValue}>{stats.streak}</Text>
-            <Text style={styles.statLabel}>DAY STREAK</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={[styles.statValue, { fontSize: 28 }]}>
-              {stats.best?.emoji ?? '—'}
-            </Text>
-            <Text style={styles.statLabel}>BEST MOOD</Text>
-          </View>
+          {[
+            { value: stats.avg || '—', label: 'AVG MOOD', color: COLORS.accent },
+            { value: stats.streak, label: 'DAY STREAK', color: COLORS.cyan },
+            { value: stats.best?.emoji ?? '—', label: 'BEST MOOD', color: COLORS.success, big: true },
+          ].map((s, i) => (
+            <View key={i} style={styles.statCard}>
+              <Text style={[styles.statValue, s.big && { fontSize: 28 }, { color: s.color }]}>{s.value}</Text>
+              <Text style={styles.statLabel}>{s.label}</Text>
+            </View>
+          ))}
         </View>
 
         {/* 14-day bar chart */}
-        <View style={styles.card}>
+        <View style={styles.glassCard}>
           <Text style={styles.cardLabel}>LAST 14 DAYS</Text>
           <View style={styles.barChart}>
             {last14.map((day, i) => {
@@ -122,10 +105,7 @@ export default function JournalScreen({ navigation }) {
               return (
                 <View key={i} style={styles.barCol}>
                   <View style={styles.barTrack}>
-                    <View style={[
-                      styles.barFill,
-                      { height: barH, backgroundColor: mood?.color ?? COLORS.border },
-                    ]} />
+                    <View style={[styles.barFill, { height: barH, backgroundColor: mood?.color ?? COLORS.border }]} />
                   </View>
                   <Text style={styles.barLabel}>{day.label}</Text>
                 </View>
@@ -135,37 +115,30 @@ export default function JournalScreen({ navigation }) {
         </View>
 
         {/* Recent entries */}
-        <View style={styles.card}>
+        <View style={styles.glassCard}>
           <Text style={styles.cardLabel}>RECENT CHECK-INS</Text>
           {history.length === 0 ? (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyEmoji}>📭</Text>
+              <Text style={styles.emptyEmoji}>✦</Text>
               <Text style={styles.emptyTitle}>No entries yet</Text>
-              <Text style={styles.emptyText}>
-                Check in from the home screen each day to see your mood patterns here.
-              </Text>
+              <Text style={styles.emptyText}>Check in from the home screen each day to see your mood patterns here.</Text>
             </View>
           ) : (
             [...history].reverse().slice(0, 10).map((entry, i) => {
               const mood = getMood(entry.moodId);
               const d = new Date(entry.timestamp);
-              const label = d.toLocaleDateString('en', {
-                weekday: 'long', month: 'short', day: 'numeric',
-              });
+              const label = d.toLocaleDateString('en', { weekday: 'long', month: 'short', day: 'numeric' });
               return (
                 <View key={i} style={[styles.entryRow, i === 0 && { borderTopWidth: 0 }]}>
-                  <View style={[styles.entryIconWrap, { backgroundColor: mood.color + '18' }]}>
-                    <Text style={styles.entryEmoji}>{mood.emoji}</Text>
+                  <View style={[styles.entryOrb, { backgroundColor: mood.color + '18', borderColor: mood.color + '40' }]}>
+                    <Text style={[styles.entryEmoji, { color: mood.color }]}>{mood.emoji}</Text>
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={[styles.entryMood, { color: mood.color }]}>{mood.label}</Text>
                     <Text style={styles.entryDate}>{label}</Text>
                   </View>
-                  <View style={styles.entryBarWrap}>
-                    <View style={[styles.entryBar, {
-                      height: (mood.value / 5) * 32,
-                      backgroundColor: mood.color,
-                    }]} />
+                  <View style={[styles.entryBar, { backgroundColor: mood.color + '20' }]}>
+                    <View style={[styles.entryBarFill, { height: `${(mood.value / 5) * 100}%`, backgroundColor: mood.color }]} />
                   </View>
                 </View>
               );
@@ -175,9 +148,9 @@ export default function JournalScreen({ navigation }) {
 
         {/* Lumaid Insight */}
         {history.length >= 3 && (
-          <View style={[styles.card, styles.insightCard]}>
+          <View style={[styles.glassCard, styles.insightCard]}>
             <View style={styles.insightHeader}>
-              <Text style={styles.insightIcon}>🌙</Text>
+              <Text style={[styles.insightIcon, { color: COLORS.accent }]}>✦</Text>
               <Text style={styles.cardLabel}>LUMAID'S INSIGHT</Text>
             </View>
             <Text style={styles.insightText}>
@@ -198,172 +171,64 @@ export default function JournalScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.bg },
-  scroll: {
-    paddingTop: Platform.OS === 'ios' ? 64 : 40,
-    paddingHorizontal: 18,
+  blobTop: {
+    position: 'absolute', width: width * 1.2, height: width * 0.8,
+    borderRadius: width * 0.6, top: -width * 0.3, alignSelf: 'center', opacity: 0.15,
   },
+  scroll: { paddingTop: Platform.OS === 'ios' ? 64 : 40, paddingHorizontal: 16 },
 
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 22,
-  },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 },
   backBtn: {
-    width: 40, height: 40,
-    backgroundColor: COLORS.surface,
-    borderRadius: 13,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 40, height: 40, backgroundColor: COLORS.surface, borderRadius: 13,
+    borderWidth: 1, borderColor: COLORS.border, alignItems: 'center', justifyContent: 'center',
   },
   backText: { fontSize: 18, color: COLORS.text },
-  title: {
-    fontFamily: 'PlayfairDisplay_700Bold',
-    fontSize: 22,
-    color: COLORS.text,
-  },
+  title: { fontFamily: 'PlayfairDisplay_700Bold', fontSize: 22, color: COLORS.text },
 
   statsRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
   statCard: {
-    flex: 1,
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 20,
-    padding: 16,
-    alignItems: 'center',
-    gap: 5,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 3 },
+    flex: 1, backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border,
+    borderRadius: 20, padding: 16, alignItems: 'center', gap: 5,
   },
-  statValue: {
-    fontFamily: 'PlayfairDisplay_700Bold',
-    fontSize: 30,
-    color: COLORS.text,
-  },
-  statLabel: {
-    fontFamily: 'Lato_700Bold',
-    fontSize: 9,
-    color: COLORS.muted,
-    letterSpacing: 0.1,
-  },
+  statValue: { fontFamily: 'PlayfairDisplay_700Bold', fontSize: 30, color: COLORS.text },
+  statLabel: { fontFamily: 'Lato_700Bold', fontSize: 9, color: COLORS.muted, letterSpacing: 0.1 },
 
-  card: {
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 20,
-    padding: 18,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 3 },
+  glassCard: {
+    backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border,
+    borderRadius: 22, padding: 18, marginBottom: 12,
   },
   cardLabel: {
-    fontFamily: 'Lato_700Bold',
-    fontSize: 10,
-    color: COLORS.muted,
-    letterSpacing: 0.12,
-    marginBottom: 14,
+    fontFamily: 'Lato_700Bold', fontSize: 10, color: COLORS.muted,
+    letterSpacing: 0.12, marginBottom: 14,
   },
 
-  barChart: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 4,
-    height: BAR_MAX_H + 22,
-  },
+  barChart: { flexDirection: 'row', alignItems: 'flex-end', gap: 4, height: BAR_MAX_H + 22 },
   barCol: { flex: 1, alignItems: 'center', gap: 5 },
   barTrack: {
-    flex: 1,
-    width: '100%',
-    justifyContent: 'flex-end',
-    backgroundColor: COLORS.surfaceUp,
-    borderRadius: 4,
-    overflow: 'hidden',
-    maxHeight: BAR_MAX_H,
+    flex: 1, width: '100%', justifyContent: 'flex-end',
+    backgroundColor: COLORS.surfaceUp, borderRadius: 6, overflow: 'hidden', maxHeight: BAR_MAX_H,
   },
-  barFill: { width: '100%', borderRadius: 4, minHeight: 4 },
-  barLabel: {
-    fontFamily: 'Lato_400Regular',
-    fontSize: 9,
-    color: COLORS.muted,
-  },
+  barFill: { width: '100%', borderRadius: 6, minHeight: 4 },
+  barLabel: { fontFamily: 'Lato_400Regular', fontSize: 9, color: COLORS.muted },
 
   entryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
+    flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12,
+    borderTopWidth: 1, borderTopColor: COLORS.border,
   },
-  entryIconWrap: {
-    width: 42, height: 42,
-    borderRadius: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  entryEmoji: { fontSize: 20 },
-  entryMood: {
-    fontFamily: 'Lato_700Bold',
-    fontSize: 14,
-    marginBottom: 2,
-  },
-  entryDate: {
-    fontFamily: 'Lato_400Regular',
-    fontSize: 11,
-    color: COLORS.muted,
-  },
-  entryBarWrap: {
-    width: 6, height: 38,
-    backgroundColor: COLORS.surfaceUp,
-    borderRadius: 3,
-    justifyContent: 'flex-end',
-    overflow: 'hidden',
-  },
-  entryBar: { width: '100%', borderRadius: 3 },
+  entryOrb: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  entryEmoji: { fontSize: 20, fontFamily: 'Lato_700Bold' },
+  entryMood: { fontFamily: 'Lato_700Bold', fontSize: 14, marginBottom: 2 },
+  entryDate: { fontFamily: 'Lato_400Regular', fontSize: 11, color: COLORS.muted },
+  entryBar: { width: 6, height: 40, borderRadius: 3, overflow: 'hidden', justifyContent: 'flex-end' },
+  entryBarFill: { width: '100%', borderRadius: 3 },
 
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 20,
-    gap: 8,
-  },
-  emptyEmoji: { fontSize: 34 },
-  emptyTitle: {
-    fontFamily: 'Lato_700Bold',
-    fontSize: 15,
-    color: COLORS.text,
-  },
-  emptyText: {
-    fontFamily: 'Lato_400Regular',
-    fontSize: 13,
-    color: COLORS.muted,
-    textAlign: 'center',
-    lineHeight: 20,
-    maxWidth: 230,
-  },
+  emptyState: { alignItems: 'center', paddingVertical: 20, gap: 8 },
+  emptyEmoji: { fontSize: 32, color: COLORS.accent },
+  emptyTitle: { fontFamily: 'Lato_700Bold', fontSize: 15, color: COLORS.text },
+  emptyText: { fontFamily: 'Lato_400Regular', fontSize: 13, color: COLORS.muted, textAlign: 'center', lineHeight: 20, maxWidth: 230 },
 
-  insightCard: {
-    borderColor: COLORS.accent + '35',
-    backgroundColor: COLORS.accentSoft,
-  },
-  insightHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 14,
-  },
-  insightIcon: { fontSize: 15 },
-  insightText: {
-    fontFamily: 'Lato_400Regular',
-    fontSize: 14,
-    color: COLORS.textSoft,
-    lineHeight: 22,
-  },
+  insightCard: { borderColor: COLORS.accent + '30', backgroundColor: COLORS.accentSoft },
+  insightHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
+  insightIcon: { fontSize: 14 },
+  insightText: { fontFamily: 'Lato_400Regular', fontSize: 14, color: COLORS.textSoft, lineHeight: 22 },
 });

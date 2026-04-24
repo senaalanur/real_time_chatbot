@@ -9,7 +9,9 @@
     "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": false,
+      "bundleIdentifier": "com.senalanur.lumaid",
+      "buildNumber": "1"
     },
     "android": {
       "adaptiveIcon": {
@@ -19,7 +21,9 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.senalanur.lumaid",
+      "versionCode": 1
     },
     "web": {
       "output": "static",
@@ -27,6 +31,7 @@
     },
     "plugins": [
       "expo-router",
+      "expo-notifications",
       [
         "expo-splash-screen",
         {
@@ -34,9 +39,7 @@
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#0D0F14",
-          "dark": {
-            "backgroundColor": "#0D0F14"
-          }
+          "dark": { "backgroundColor": "#0D0F14" }
         }
       ],
       "expo-font"
@@ -44,6 +47,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "c55f68de-3b20-4468-924e-99b12e7020d0"
+      }
     }
   }
 }
