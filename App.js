@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { supabase } from './lib/supabase';
+import { registerForPushNotifications, scheduleDailyReminder } from './lib/notifications';
 
 import AuthScreen from './screens/AuthScreen';
 import CharacterBuilderScreen from './screens/CharacterBuilderScreen';
@@ -13,6 +14,8 @@ import ChatScreen from './screens/ChatScreen';
 import HomeScreen from './screens/HomeScreen';
 import JournalScreen from './screens/JournalScreen';
 import OnboardingScreen from './screens/OnboardingScreen';
+import ProfileScreen from './screens/ProfileScreen';
+import SplashScreen from './screens/SplashScreen';
 import WeeklyRecapScreen from './screens/WeeklyRecapScreen';
 
 const Stack = createNativeStackNavigator();
@@ -23,6 +26,10 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    registerForPushNotifications().then(status => {
+      if (status === 'granted') scheduleDailyReminder(20, 0);
+    });
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
     });
@@ -45,7 +52,7 @@ export default function App() {
     }
   }, [session]);
 
-  if (loading) return null;
+  if (loading) return <SplashScreen />;
 
   return (
     <SafeAreaProvider>
@@ -63,6 +70,7 @@ export default function App() {
           <Stack.Screen name="Characters" component={CharactersScreen} />
           <Stack.Screen name="CharacterBuilder" component={CharacterBuilderScreen} />
           <Stack.Screen name="WeeklyRecap" component={WeeklyRecapScreen} />
+          <Stack.Screen name="Profile" component={ProfileScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>

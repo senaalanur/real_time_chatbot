@@ -160,10 +160,10 @@ export default function HomeScreen({ navigation }) {
       >
         {/* Header */}
         <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>{greeting()}</Text>
-            <Text style={styles.userName}>{user?.name ?? '...'}</Text>
-          </View>
+        <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
+          <Text style={styles.greeting}>{greeting()}</Text>
+          <Text style={styles.userName}>{user?.name ?? '...'}</Text>
+        </TouchableOpacity>
           <TouchableOpacity
             style={[styles.soulBadge, { borderColor: soul.color + '60' }]}
             onPress={() => {
