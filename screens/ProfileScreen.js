@@ -10,6 +10,7 @@ import {
   Platform,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TouchableOpacity,
   View,
@@ -25,6 +26,8 @@ export default function ProfileScreen({ navigation }) {
   const [streak, setStreak] = useState(0);
   const [totalChats, setTotalChats] = useState(0);
   const [email, setEmail] = useState('');
+  const [newsletterSubscribed, setNewsletterSubscribed] = useState(false);
+  const [newsletterLoading, setNewsletterLoading] = useState(false);
 
   const [fontsLoaded] = useFonts({
     PlayfairDisplay_700Bold,
@@ -60,7 +63,39 @@ export default function ProfileScreen({ navigation }) {
     }
 
     const { data: { user: authUser } } = await supabase.auth.getUser();
-    if (authUser) setEmail(authUser.email ?? '');
+    if (authUser) {
+      setEmail(authUser.email ?? '');
+      // Load newsletter subscription status
+      const { data } = await supabase
+        .from('email_subscribers')
+        .select('subscribed')
+        .eq('user_id', authUser.id)
+        .single();
+      if (data) setNewsletterSubscribed(data.subscribed);
+    }
+  };
+
+  const handleNewsletterToggle = async (value) => {
+    setNewsletterSubscribed(value);
+    setNewsletterLoading(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) return;
+
+      await supabase.from('email_subscribers').upsert({
+        user_id: authUser.id,
+        email: authUser.email,
+        subscribed: value,
+        updated_at: new Date().toISOString(),
+      });
+    } catch (err) {
+      console.log('Newsletter toggle error:', err.message);
+      setNewsletterSubscribed(!value); // revert on error
+    } finally {
+      setNewsletterLoading(false);
+    }
   };
 
   const handleSignOut = () => {
@@ -177,9 +212,10 @@ export default function ProfileScreen({ navigation }) {
         <View style={styles.glassCard}>
           <Text style={styles.cardLabel}>SETTINGS</Text>
           {[
-            { label: 'My Characters', emoji: '✦', color: COLORS.accent, onPress: () => navigation.navigate('Characters') },
             { label: 'Mood Journal', emoji: '📈', color: COLORS.cyan, onPress: () => navigation.navigate('Journal') },
-            { label: 'Weekly Recap', emoji: '📊', color: COLORS.success, onPress: () => navigation.navigate('WeeklyRecap') },
+            // V2 — uncomment when ready
+            // { label: 'My Characters', emoji: '✦', color: COLORS.accent, onPress: () => navigation.navigate('Characters') },
+            // { label: 'Weekly Recap', emoji: '📊', color: COLORS.success, onPress: () => navigation.navigate('WeeklyRecap') },
           ].map((item, i) => (
             <TouchableOpacity
               key={i}
@@ -193,6 +229,30 @@ export default function ProfileScreen({ navigation }) {
               <Text style={[styles.settingsArrow, { color: item.color }]}>→</Text>
             </TouchableOpacity>
           ))}
+        </View>
+
+        {/* Newsletter */}
+        <View style={styles.glassCard}>
+          <Text style={styles.cardLabel}>FROM THE FOUNDERS</Text>
+          <View style={styles.newsletterRow}>
+            <View style={[styles.settingsIcon, { backgroundColor: COLORS.accent + '15' }]}>
+              <Text style={styles.settingsEmoji}>✉️</Text>
+            </View>
+            <View style={{ flex: 1, gap: 3 }}>
+              <Text style={styles.newsletterTitle}>Founder Notes</Text>
+              <Text style={styles.newsletterSub}>
+                Rare, personal updates from the people building Lumaid. No spam — ever.
+              </Text>
+            </View>
+            <Switch
+              value={newsletterSubscribed}
+              onValueChange={handleNewsletterToggle}
+              disabled={newsletterLoading}
+              trackColor={{ false: COLORS.border, true: COLORS.accent + '80' }}
+              thumbColor={newsletterSubscribed ? COLORS.accent : COLORS.muted}
+              ios_backgroundColor={COLORS.surface}
+            />
+          </View>
         </View>
 
         {/* About */}
@@ -232,7 +292,6 @@ const styles = StyleSheet.create({
     borderRadius: width * 0.6, top: -width * 0.3, alignSelf: 'center', opacity: 0.15,
   },
   scroll: { paddingHorizontal: 16, paddingTop: Platform.OS === 'ios' ? 60 : 40 },
-
   header: {
     flexDirection: 'row', alignItems: 'center',
     justifyContent: 'space-between', marginBottom: 28,
@@ -243,27 +302,16 @@ const styles = StyleSheet.create({
   },
   backText: { fontSize: 18, color: COLORS.text },
   title: { fontFamily: 'PlayfairDisplay_700Bold', fontSize: 22, color: COLORS.text },
-
   avatarSection: { alignItems: 'center', marginBottom: 28 },
   avatarOrb: {
     width: 90, height: 90, borderRadius: 45, borderWidth: 2,
     alignItems: 'center', justifyContent: 'center', marginBottom: 14,
   },
   avatarInitial: { fontFamily: 'PlayfairDisplay_700Bold', fontSize: 38 },
-  profileName: {
-    fontFamily: 'PlayfairDisplay_700Bold', fontSize: 26,
-    color: COLORS.text, marginBottom: 4,
-  },
-  profileEmail: {
-    fontFamily: 'Lato_400Regular', fontSize: 13,
-    color: COLORS.muted, marginBottom: 12,
-  },
-  memberPill: {
-    borderWidth: 1, borderRadius: 20,
-    paddingHorizontal: 14, paddingVertical: 6,
-  },
+  profileName: { fontFamily: 'PlayfairDisplay_700Bold', fontSize: 26, color: COLORS.text, marginBottom: 4 },
+  profileEmail: { fontFamily: 'Lato_400Regular', fontSize: 13, color: COLORS.muted, marginBottom: 12 },
+  memberPill: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 6 },
   memberText: { fontFamily: 'Lato_700Bold', fontSize: 12 },
-
   statsRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
   statCard: {
     flex: 1, backgroundColor: COLORS.surface, borderWidth: 1,
@@ -271,57 +319,42 @@ const styles = StyleSheet.create({
   },
   statNum: { fontFamily: 'PlayfairDisplay_700Bold', fontSize: 28, color: COLORS.text },
   statLabel: { fontFamily: 'Lato_700Bold', fontSize: 9, color: COLORS.muted, letterSpacing: 0.1 },
-
   glassCard: {
     backgroundColor: COLORS.surface, borderWidth: 1,
     borderColor: COLORS.border, borderRadius: 22, padding: 18, marginBottom: 12,
   },
-  cardLabel: {
-    fontFamily: 'Lato_700Bold', fontSize: 10, color: COLORS.muted,
-    letterSpacing: 0.12, marginBottom: 14,
-  },
-
+  cardLabel: { fontFamily: 'Lato_700Bold', fontSize: 10, color: COLORS.muted, letterSpacing: 0.12, marginBottom: 14 },
   companionRow: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  companionOrb: {
-    width: 50, height: 50, borderRadius: 25, borderWidth: 1.5,
-    alignItems: 'center', justifyContent: 'center',
-  },
+  companionOrb: { width: 50, height: 50, borderRadius: 25, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   companionEmoji: { fontSize: 24 },
   companionName: { fontFamily: 'Lato_700Bold', fontSize: 16, marginBottom: 3 },
   companionTagline: { fontFamily: 'Lato_400Regular', fontSize: 11, color: COLORS.muted },
-  switchBtn: {
-    borderWidth: 1, borderRadius: 20,
-    paddingHorizontal: 14, paddingVertical: 7,
-  },
+  switchBtn: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7 },
   switchBtnText: { fontFamily: 'Lato_700Bold', fontSize: 12 },
-
   settingsRow: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
     paddingVertical: 13, borderTopWidth: 1, borderTopColor: COLORS.border,
   },
-  settingsIcon: {
-    width: 38, height: 38, borderRadius: 12,
-    alignItems: 'center', justifyContent: 'center',
-  },
+  settingsIcon: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   settingsEmoji: { fontSize: 18 },
   settingsLabel: { flex: 1, fontFamily: 'Lato_700Bold', fontSize: 14, color: COLORS.text },
   settingsArrow: { fontSize: 16, fontFamily: 'Lato_700Bold' },
-
+  newsletterRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+  },
+  newsletterTitle: { fontFamily: 'Lato_700Bold', fontSize: 14, color: COLORS.text },
+  newsletterSub: { fontFamily: 'Lato_400Regular', fontSize: 11, color: COLORS.muted, lineHeight: 16 },
   aboutRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingVertical: 11, borderTopWidth: 1, borderTopColor: COLORS.border,
   },
   aboutLabel: { fontFamily: 'Lato_400Regular', fontSize: 14, color: COLORS.textSoft },
   aboutValue: { fontFamily: 'Lato_700Bold', fontSize: 13, color: COLORS.muted },
-
   signOutBtn: {
     backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border,
     borderRadius: 16, paddingVertical: 15, alignItems: 'center', marginBottom: 10,
   },
   signOutText: { fontFamily: 'Lato_700Bold', fontSize: 15, color: COLORS.text },
-
-  deleteBtn: {
-    paddingVertical: 15, alignItems: 'center', marginBottom: 10,
-  },
+  deleteBtn: { paddingVertical: 15, alignItems: 'center', marginBottom: 10 },
   deleteBtnText: { fontFamily: 'Lato_400Regular', fontSize: 13, color: COLORS.danger },
 });

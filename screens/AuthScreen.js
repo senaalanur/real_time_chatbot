@@ -1,11 +1,13 @@
 import { Lato_400Regular, Lato_700Bold } from '@expo-google-fonts/lato';
 import { PlayfairDisplay_700Bold } from '@expo-google-fonts/playfair-display';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFonts } from 'expo-font';
 import React, { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   ScrollView,
   StyleSheet,
@@ -20,7 +22,12 @@ import { COLORS } from '../constants';
 
 const { width } = Dimensions.get('window');
 
+// ── Replace these with your real URLs before launch ──────────────────────────
+const TERMS_URL = 'https://lumaid.app/terms';
+const PRIVACY_URL = 'https://lumaid.app/privacy';
+
 export default function AuthScreen({ navigation }) {
+  // 'login' | 'signup' | 'forgot'
   const [mode, setMode] = useState('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -28,8 +35,10 @@ export default function AuthScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
-  const glowAnim = useRef(new Animated.Value(0.5)).current;
+  const fadeAnim = useRef(new Animated.Value(1)).current;
 
   const [fontsLoaded] = useFonts({
     PlayfairDisplay_700Bold,
@@ -39,51 +48,136 @@ export default function AuthScreen({ navigation }) {
 
   if (!fontsLoaded) return null;
 
+  // ── Helpers ────────────────────────────────────────────────────────────────
   const validateEmail = (e) => /\S+@\S+\.\S+/.test(e);
 
-  const handleAuth = async () => {
+  const animateTransition = (fn) => {
+    Animated.timing(fadeAnim, { toValue: 0, duration: 150, useNativeDriver: true }).start(() => {
+      fn();
+      Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }).start();
+    });
+  };
+
+  const switchMode = (next) => {
+    animateTransition(() => {
+      setMode(next);
+      setError('');
+      setMessage('');
+      setPassword('');
+      setConfirmPassword('');
+    });
+  };
+
+  // ── Guest ──────────────────────────────────────────────────────────────────
+  const handleGuest = async () => {
+    await AsyncStorage.setItem('lumaid_guest', 'true');
+    // Trigger App.js to re-evaluate by replacing with Home
+    // App.js will redirect to Onboarding since lumaid_user isn't set yet
+    navigation.replace('Home');
+  };
+
+  // ── Forgot password ────────────────────────────────────────────────────────
+  const handleForgot = async () => {
     setError('');
     setMessage('');
-    if (!email.trim() || !password.trim()) { setError('Please fill in all fields.'); return; }
+    if (!email.trim()) { setError('Enter your email address first.'); return; }
     if (!validateEmail(email)) { setError('Please enter a valid email address.'); return; }
-    if (password.length < 6) { setError('Password must be at least 6 characters.'); return; }
-    if (mode === 'signup' && password !== confirmPassword) { setError('Passwords do not match.'); return; }
-
     setLoading(true);
     try {
-      if (mode === 'signup') {
-        const { error } = await supabase.auth.signUp({ email, password });
-        if (error) throw error;
-        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-        if (signInError) throw signInError;
-        navigation.replace('Onboarding');
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        navigation.replace('Home');
-      }
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: 'lumaid://reset-password',
+      });
+      if (error) throw error;
+      setMessage('Check your inbox — we sent a reset link!');
     } catch (err) {
-      const msg = err.message ?? '';
-      if (msg.includes('Invalid login credentials')) setError('Incorrect email or password.');
-      else if (msg.includes('User already registered')) setError('Account exists. Sign in instead.');
-      else setError(msg || 'Something went wrong. Please try again.');
+      setError(err.message || 'Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
-  const switchMode = () => {
-    setMode(mode === 'login' ? 'signup' : 'login');
-    setError(''); setMessage(''); setPassword(''); setConfirmPassword('');
+  // ── Sign up / Sign in ──────────────────────────────────────────────────────
+  const handleAuth = async () => {
+    setError('');
+    setMessage('');
+
+    if (!email.trim()) { setError('Email is required.'); return; }
+    if (!validateEmail(email)) { setError('Please enter a valid email address.'); return; }
+    if (!password.trim()) { setError('Password is required.'); return; }
+    if (password.length < 6) { setError('Password must be at least 6 characters.'); return; }
+    if (mode === 'signup' && password !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      if (mode === 'signup') {
+        const { data, error } = await supabase.auth.signUp({
+          email: email.trim(),
+          password,
+        });
+        if (error) throw error;
+
+        // Auto sign-in right after signup (skip email confirmation for now)
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+
+        // If sign-in failed it's likely email confirmation is required
+        if (signInError) {
+          setMessage('Account created! Check your email to confirm, then sign in.');
+          switchMode('login');
+          return;
+        }
+
+        navigation.replace('Onboarding');
+      } else {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: email.trim(),
+          password,
+        });
+        if (error) throw error;
+        navigation.replace('Home');
+      }
+    } catch (err) {
+      const msg = err.message ?? '';
+      if (msg.includes('Invalid login credentials')) {
+        setError('Incorrect email or password. Try again.');
+      } else if (msg.includes('User already registered')) {
+        setError('An account with this email already exists.');
+        switchMode('login');
+      } else if (msg.includes('Email not confirmed')) {
+        setError('Please confirm your email before signing in.');
+      } else if (msg.includes('rate limit')) {
+        setError('Too many attempts. Please wait a moment.');
+      } else {
+        setError(msg || 'Something went wrong. Please try again.');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
+  // ── UI ─────────────────────────────────────────────────────────────────────
+  const isSignup = mode === 'signup';
+  const isForgot = mode === 'forgot';
+
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.root}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={styles.root}
+    >
       {/* Background blobs */}
       <View style={[styles.blobTop, { backgroundColor: COLORS.accentGlow }]} />
       <View style={[styles.blobBottom, { backgroundColor: COLORS.cyanGlow }]} />
 
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
         {/* Header */}
         <View style={styles.header}>
           <View style={styles.logoOrb}>
@@ -91,88 +185,162 @@ export default function AuthScreen({ navigation }) {
           </View>
           <Text style={styles.logo}>lumaid</Text>
           <Text style={styles.tagline}>
-            {mode === 'login' ? 'Welcome back.' : 'Create your account.'}
+            {isForgot
+              ? 'Reset your password.'
+              : isSignup
+              ? 'Create your account.'
+              : 'Welcome back.'}
           </Text>
         </View>
 
-        {/* Form */}
-        <View style={styles.form}>
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>EMAIL</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="you@example.com"
-              placeholderTextColor={COLORS.muted}
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              autoCorrect={false}
-            />
-          </View>
+        <Animated.View style={{ opacity: fadeAnim }}>
+          {/* Form */}
+          <View style={styles.form}>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>PASSWORD</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="At least 6 characters"
-              placeholderTextColor={COLORS.muted}
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-            />
-          </View>
-
-          {mode === 'signup' && (
+            {/* Email */}
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>CONFIRM PASSWORD</Text>
+              <Text style={styles.label}>EMAIL</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Repeat your password"
+                placeholder="you@example.com"
                 placeholderTextColor={COLORS.muted}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                autoCorrect={false}
               />
             </View>
-          )}
 
-          {error ? (
-            <View style={styles.errorBox}>
-              <Text style={styles.errorText}>{error}</Text>
-            </View>
-          ) : null}
+            {/* Password (hidden on forgot mode) */}
+            {!isForgot && (
+              <View style={styles.inputGroup}>
+                <View style={styles.labelRow}>
+                  <Text style={styles.label}>PASSWORD</Text>
+                  {!isSignup && (
+                    <TouchableOpacity onPress={() => switchMode('forgot')}>
+                      <Text style={styles.forgotLink}>Forgot password?</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+                <View style={styles.inputRow}>
+                  <TextInput
+                    style={[styles.input, { flex: 1, paddingRight: 50 }]}
+                    placeholder="At least 6 characters"
+                    placeholderTextColor={COLORS.muted}
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                  />
+                  <TouchableOpacity
+                    style={styles.eyeBtn}
+                    onPress={() => setShowPassword(!showPassword)}
+                  >
+                    <Text style={styles.eyeText}>{showPassword ? '🙈' : '👁'}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
 
-          {message ? (
-            <View style={styles.successBox}>
-              <Text style={styles.successText}>{message}</Text>
-            </View>
-          ) : null}
+            {/* Confirm password */}
+            {isSignup && (
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>CONFIRM PASSWORD</Text>
+                <View style={styles.inputRow}>
+                  <TextInput
+                    style={[styles.input, { flex: 1, paddingRight: 50 }]}
+                    placeholder="Repeat your password"
+                    placeholderTextColor={COLORS.muted}
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    secureTextEntry={!showConfirm}
+                  />
+                  <TouchableOpacity
+                    style={styles.eyeBtn}
+                    onPress={() => setShowConfirm(!showConfirm)}
+                  >
+                    <Text style={styles.eyeText}>{showConfirm ? '🙈' : '👁'}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
 
-          <TouchableOpacity
-            style={[styles.btn, loading && { opacity: 0.6 }]}
-            onPress={handleAuth}
-            disabled={loading}
-          >
-            {loading
-              ? <ActivityIndicator color={COLORS.white} />
-              : <Text style={styles.btnText}>{mode === 'login' ? 'Sign In →' : 'Create Account →'}</Text>}
-          </TouchableOpacity>
-        </View>
+            {/* Error */}
+            {error ? (
+              <View style={styles.errorBox}>
+                <Text style={styles.errorIcon}>⚠</Text>
+                <Text style={styles.errorText}>{error}</Text>
+              </View>
+            ) : null}
 
-        {/* Switch mode */}
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            {mode === 'login' ? "Don't have an account?" : 'Already have an account?'}
-          </Text>
-          <TouchableOpacity onPress={switchMode}>
-            <Text style={styles.footerLink}>{mode === 'login' ? ' Sign up' : ' Sign in'}</Text>
-          </TouchableOpacity>
-        </View>
+            {/* Success */}
+            {message ? (
+              <View style={styles.successBox}>
+                <Text style={styles.successIcon}>✓</Text>
+                <Text style={styles.successText}>{message}</Text>
+              </View>
+            ) : null}
 
-        <Text style={styles.legal}>
-          By continuing, you agree to our Terms of Service and Privacy Policy.
-        </Text>
+            {/* Primary button */}
+            <TouchableOpacity
+              style={[styles.btn, loading && { opacity: 0.6 }]}
+              onPress={isForgot ? handleForgot : handleAuth}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color={COLORS.white} />
+              ) : (
+                <Text style={styles.btnText}>
+                  {isForgot
+                    ? 'Send Reset Link →'
+                    : isSignup
+                    ? 'Create Account →'
+                    : 'Sign In →'}
+                </Text>
+              )}
+            </TouchableOpacity>
+
+            {/* Guest button */}
+            {!isForgot && (
+              <TouchableOpacity style={styles.guestBtn} onPress={handleGuest}>
+                <Text style={styles.guestText}>Continue as Guest</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Switch mode footer */}
+          <View style={styles.footer}>
+            {isForgot ? (
+              <TouchableOpacity onPress={() => switchMode('login')}>
+                <Text style={styles.footerLink}>← Back to Sign In</Text>
+              </TouchableOpacity>
+            ) : (
+              <>
+                <Text style={styles.footerText}>
+                  {isSignup ? 'Already have an account?' : "Don't have an account?"}
+                </Text>
+                <TouchableOpacity onPress={() => switchMode(isSignup ? 'login' : 'signup')}>
+                  <Text style={styles.footerLink}>
+                    {isSignup ? ' Sign in' : ' Sign up'}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+
+          {/* Legal */}
+          <View style={styles.legalRow}>
+            <Text style={styles.legalText}>By continuing, you agree to our </Text>
+            <TouchableOpacity onPress={() => Linking.openURL(TERMS_URL)}>
+              <Text style={styles.legalLink}>Terms of Service</Text>
+            </TouchableOpacity>
+            <Text style={styles.legalText}> and </Text>
+            <TouchableOpacity onPress={() => Linking.openURL(PRIVACY_URL)}>
+              <Text style={styles.legalLink}>Privacy Policy</Text>
+            </TouchableOpacity>
+            <Text style={styles.legalText}>.</Text>
+          </View>
+        </Animated.View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -207,7 +375,7 @@ const styles = StyleSheet.create({
     paddingVertical: 60,
   },
 
-  header: { alignItems: 'center', marginBottom: 40 },
+  header: { alignItems: 'center', marginBottom: 36 },
   logoOrb: {
     width: 80, height: 80,
     borderRadius: 40,
@@ -232,16 +400,35 @@ const styles = StyleSheet.create({
     color: COLORS.textSoft,
   },
 
-  form: { gap: 14, marginBottom: 28 },
+  form: { gap: 14, marginBottom: 24 },
   inputGroup: { gap: 7 },
+
+  labelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginLeft: 4,
+    marginRight: 4,
+  },
   label: {
     fontFamily: 'Lato_700Bold',
     fontSize: 10,
     color: COLORS.muted,
     letterSpacing: 0.16,
-    marginLeft: 4,
+  },
+  forgotLink: {
+    fontFamily: 'Lato_700Bold',
+    fontSize: 11,
+    color: COLORS.accent,
+  },
+
+  inputRow: {
+    position: 'relative',
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   input: {
+    flex: 1,
     backgroundColor: COLORS.surface,
     borderWidth: 1,
     borderColor: COLORS.border,
@@ -252,32 +439,57 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: COLORS.text,
   },
+  eyeBtn: {
+    position: 'absolute',
+    right: 14,
+    padding: 4,
+  },
+  eyeText: { fontSize: 16 },
 
   errorBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
     backgroundColor: COLORS.danger + '15',
     borderWidth: 1,
     borderColor: COLORS.danger + '40',
     borderRadius: 14,
     padding: 13,
   },
+  errorIcon: {
+    fontSize: 13,
+    color: COLORS.danger,
+    marginTop: 1,
+  },
   errorText: {
+    flex: 1,
     fontFamily: 'Lato_400Regular',
     fontSize: 13,
     color: COLORS.danger,
-    textAlign: 'center',
+    lineHeight: 19,
   },
+
   successBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
     backgroundColor: COLORS.success + '15',
     borderWidth: 1,
     borderColor: COLORS.success + '40',
     borderRadius: 14,
     padding: 13,
   },
+  successIcon: {
+    fontSize: 13,
+    color: COLORS.success,
+    marginTop: 1,
+  },
   successText: {
+    flex: 1,
     fontFamily: 'Lato_400Regular',
     fontSize: 13,
     color: COLORS.success,
-    textAlign: 'center',
+    lineHeight: 19,
   },
 
   btn: {
@@ -294,15 +506,54 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
 
-  footer: { flexDirection: 'row', justifyContent: 'center', marginBottom: 20 },
-  footerText: { fontFamily: 'Lato_400Regular', fontSize: 13, color: COLORS.textSoft },
-  footerLink: { fontFamily: 'Lato_700Bold', fontSize: 13, color: COLORS.accent },
+  guestBtn: {
+    borderRadius: 50,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.surface,
+  },
+  guestText: {
+    fontFamily: 'Lato_400Regular',
+    fontSize: 15,
+    color: COLORS.textSoft,
+  },
 
-  legal: {
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  footerText: {
+    fontFamily: 'Lato_400Regular',
+    fontSize: 13,
+    color: COLORS.textSoft,
+  },
+  footerLink: {
+    fontFamily: 'Lato_700Bold',
+    fontSize: 13,
+    color: COLORS.accent,
+  },
+
+  legalRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+  },
+  legalText: {
     fontFamily: 'Lato_400Regular',
     fontSize: 11,
     color: COLORS.muted,
-    textAlign: 'center',
-    lineHeight: 17,
+    lineHeight: 18,
+  },
+  legalLink: {
+    fontFamily: 'Lato_700Bold',
+    fontSize: 11,
+    color: COLORS.accent,
+    lineHeight: 18,
+    textDecorationLine: 'underline',
   },
 });

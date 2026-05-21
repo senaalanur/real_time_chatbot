@@ -1,6 +1,6 @@
 # 🌙 Lumaid — AI Wellness Companion
 
-> A production-grade AI wellness app built with React Native + Expo. Talk to your AI companion about real life — stress, anxiety, focus, reflection. Create custom AI characters with unique personalities, track your mood, and get weekly AI-generated insights. Available on iOS & Android.
+> A production-grade AI wellness app built with React Native + Expo. Talk to your AI companion about real life — stress, anxiety, focus, reflection. Track your mood daily, build streaks, and grow with a companion that actually listens.
 
 ![React Native](https://img.shields.io/badge/React_Native-0.81-61DAFB?style=flat&logo=react)
 ![Expo](https://img.shields.io/badge/Expo-54-000000?style=flat&logo=expo)
@@ -11,24 +11,23 @@
 
 ---
 
-## ✨ Features
+## ✨ MVP Features
 
 | Feature | Details |
 |---|---|
-| 🔐 **Authentication** | Supabase email/password auth with confirm password validation |
-| 🎭 **4 Wellness Personas** | Sage, Spark, Zen, Ghost — distinct AI companions with unique system prompts |
-| ✦ **Custom Character Builder** | Create up to 3 AI companions with custom name, color, and 3 personality sliders |
-| 🧠 **Persistent Memory** | Each character remembers your past conversations via Supabase |
+| 🔐 **Authentication** | Supabase email/password auth |
+| 🎭 **4 Wellness Personas** | Sage, Spark, Zen, Cass — distinct AI companions with unique personalities |
+| 🌿 **Mood Check-in** | Daily emoji-based mood tracking with streak system |
+| 🧠 **Persistent Memory** | AI remembers context across sessions and soul switches |
+| 🔥 **Streak System** | Daily check-in streaks with milestone notifications |
+| 🔔 **Smart Notifications** | Persona-specific daily reminders + streak warnings |
 | 🌿 **Wellness Tools** | Daily check-in, vent session, evening reflection, anxiety support, gratitude practice, focus mode |
-| 📊 **Weekly Recap** | AI-generated mood summary, bar chart, personal reflection, shareable card |
-| 🔥 **Streak System** | Daily check-in streaks displayed on home screen |
 | 🎙️ **Voice Output** | expo-speech TTS — tap any message to hear it read aloud |
-| 📈 **Mood Journal** | Daily check-ins, 14-day bar chart, streak tracking, AI insights |
-| 🧠 **Empathetic AI** | Short reflective responses with thinking delay — feels like real listening |
+| 📈 **Mood Journal** | Daily check-ins, 14-day bar chart, streak tracking |
 | 🔒 **Secure Backend** | Node.js/Express proxy — Groq API key never exposed to client |
 | ⚡ **Rate Limiting** | 20 messages/hour per IP — protects API costs |
-| 🎨 **Dark Glassmorphism UI** | Deep navy/black base, frosted glass cards, character accent colors |
-| 🚀 **Production Ready** | pm2 process manager, Supabase auth + DB, EAS Build config |
+| 🎨 **Dark Glassmorphism UI** | Deep navy/black base, frosted glass cards, persona accent colors |
+| ✉️ **Founder Newsletter** | Opt-in at onboarding — personal notes from the Lumaid team |
 
 ---
 
@@ -36,43 +35,36 @@
 
 **Auth** — Sign in / Sign up with email and password
 
-**Onboarding** — Welcome → Name → Soul selection → Ready
+**Onboarding** — Welcome → Name → Soul selection → Ready (with newsletter opt-in)
 
-**Home** — Animated breathing orb, soul switcher, wellness tools, mood check-in, streak badge, characters shortcut, weekly recap shortcut
+**Home** — Animated breathing orb, soul switcher, wellness tools, mood check-in, streak badge
 
-**Characters** — List, create, edit, delete custom AI companions (max 3)
+**Chat** — Empathetic short responses with thinking delay, typing indicator, wellness tools panel, persistent memory, TTS voice output
 
-**Character Builder** — Name, accent color picker, warmth/directness/energy sliders with live personality preview
+**Mood Journal** — 14-day mood bar chart, streak + average stats, entry history
 
-**Chat** — Empathetic short responses with thinking delay, typing indicator, wellness tools panel, persistent memory for custom characters, TTS voice output, retry on error
-
-**Mood Journal** — 14-day mood bar chart, streak + average stats, entry history, AI insight card
-
-**Weekly Recap** — 7-day mood arc, AI-generated personal reflection, mood breakdown, shareable summary
+**Profile** — Stats, companion info, settings, sign out
 
 ---
 
 ## 🏗️ Architecture
-
-```
 React Native / Expo
-Auth → Onboarding → Home → Chat / Characters / Journal / Recap
-        │
-        ▼
-Node.js / Express Backend
-Rate limiting · Groq API proxy
+Auth → Onboarding → Home → Chat / Journal / Profile
+│
+▼
+Node.js / Express Backend (Railway)
+Rate limiting · Groq API proxy · Memory summarization
 API key never leaves server
-        │
-        ▼
+│
+▼
 Groq API — LLaMA 3.3 70B
-Soul/character system prompt + conversation history
-        │
-        ├──────────────────────┐
-        ▼                      ▼
+Soul system prompt + conversation history + persistent memory
+│
+├──────────────────────┐
+▼                      ▼
 Supabase                  AsyncStorage
-Auth + Characters         Mood history
-Conversations (memory)    Stats + streak
-```
+Auth + Memory             Chat history per soul
+Email subscribers         Mood history + streak
 
 ---
 
@@ -80,24 +72,10 @@ Conversations (memory)    Stats + streak
 
 | Persona | Personality | Best For |
 |---|---|---|
-| 🌿 **Sage** | Wise, philosophical, Socratic | Reflection, big decisions |
+| 🌿 **Sage** | Wise, warm, therapeutic | Reflection, big decisions |
 | ⚡ **Spark** | Hype, energetic, celebratory | Motivation, confidence |
 | 🌊 **Zen** | Calm, non-judgmental, grounding | Stress, anxiety, venting |
-| ◈ **Ghost** | Minimal, direct, no fluff | Quick clarity, focus |
-
----
-
-## ✦ Custom Characters
-
-Users can create up to 3 fully custom AI companions:
-
-- **Name** — anything you want
-- **Accent color** — 9 color options
-- **Warmth** — cool & professional → warm & caring
-- **Directness** — gentle & soft → blunt & honest
-- **Energy** — calm & quiet → high energy & enthusiastic
-
-Each character has persistent memory — they remember your past conversations.
+| ✦ **Cass** | Unbothered nepo baby, careless but always right | When you need brutal honesty with zero drama |
 
 ---
 
@@ -108,12 +86,12 @@ Each character has persistent memory — they remember your past conversations.
 | Framework | React Native + Expo SDK 54 |
 | Navigation | React Navigation v7 |
 | Auth | Supabase (email/password) |
-| Database | Supabase (characters + conversations) |
+| Database | Supabase (memory + email subscribers) |
 | AI | Groq API — LLaMA 3.3 70B |
-| Backend | Node.js + Express (API proxy) |
-| Process Manager | pm2 |
-| Storage | AsyncStorage (mood + stats) |
+| Backend | Node.js + Express (Railway) |
+| Storage | AsyncStorage (mood, stats, chat history) |
 | Voice | expo-speech (TTS) |
+| Notifications | expo-notifications |
 | Haptics | expo-haptics |
 | Fonts | Playfair Display, Lato, Space Mono |
 | Build | Expo EAS Build |
@@ -133,13 +111,14 @@ npm install
 ### 2. Set up environment variables
 
 Create a `.env` file in the root:
-
-```
 EXPO_PUBLIC_SUPABASE_URL=your_supabase_url
 EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-```
 
-### 3. Set up the backend
+### 3. Backend
+
+Backend is deployed on Railway at `https://lumaid-backend-production.up.railway.app`.
+
+To run locally:
 
 ```bash
 cd ../lumaid-backend
@@ -147,55 +126,26 @@ npm install
 ```
 
 Create a `.env` file in `lumaid-backend/`:
-
-```
 GROQ_KEY=your_groq_api_key
-```
-
-Start the backend:
+PORT=3001
 
 ```bash
 node server.js
 ```
 
-### 4. Update your IP in constants.js
-
-```javascript
-const BACKEND_URL = __DEV__
-  ? 'http://YOUR_LOCAL_IP:3001'
-  : 'https://your-production-backend.com';
-```
-
-### 5. Run on your phone
+### 4. Run on your phone
 
 ```bash
 npx expo start
 ```
 
-Scan the QR code with your iPhone camera.
+Scan the QR code with your iPhone camera (Expo Go).
 
 ---
 
 ## 🗄️ Supabase Setup
 
-Run these SQL statements in your Supabase SQL editor:
-
 ```sql
-create table characters (
-  id uuid default gen_random_uuid() primary key,
-  user_id uuid references auth.users(id) on delete cascade not null,
-  name text not null,
-  color text not null,
-  warmth integer default 5,
-  directness integer default 5,
-  energy integer default 5,
-  created_at timestamp with time zone default now()
-);
-
-alter table characters enable row level security;
-create policy "Users can manage their own characters"
-  on characters for all using (auth.uid() = user_id);
-
 create table conversations (
   id uuid default gen_random_uuid() primary key,
   user_id uuid references auth.users(id) on delete cascade not null,
@@ -209,22 +159,52 @@ create table conversations (
 alter table conversations enable row level security;
 create policy "Users can manage their own conversations"
   on conversations for all using (auth.uid() = user_id);
+
+create table user_memory (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) on delete cascade not null unique,
+  memory_summary text,
+  last_updated timestamp with time zone default now()
+);
+
+alter table user_memory enable row level security;
+create policy "Users can manage their own memory"
+  on user_memory for all using (auth.uid() = user_id);
+
+create table email_subscribers (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) on delete cascade,
+  email text not null,
+  subscribed boolean default true,
+  subscribed_at timestamp with time zone default now(),
+  updated_at timestamp with time zone default now()
+);
+
+alter table email_subscribers enable row level security;
+create policy "Users can view own subscription"
+  on email_subscribers for select using (auth.uid() = user_id);
+create policy "Users can insert own subscription"
+  on email_subscribers for insert with check (auth.uid() = user_id);
+create policy "Users can update own subscription"
+  on email_subscribers for update using (auth.uid() = user_id);
 ```
 
 ---
 
-## 🔮 Roadmap
+## 🔮 Roadmap (V2)
 
+- [ ] Custom persona builder — create your own AI companion with personality sliders
+- [ ] Weekly recap cards — shareable mood summary with AI insights
 - [ ] Voice input — speak instead of type (Whisper API)
-- [ ] Mood history timeline — calendar view of past moods
+- [ ] Smart notifications — personalized messages based on mood patterns
+- [ ] Streak system enhancements — milestones, rewards
 - [ ] Export weekly recap as image for Instagram/TikTok
-- [ ] RevenueCat monetization — freemium + subscription
+- [ ] Freemium monetization — Free / Pro / Max tiers
 - [ ] App Store & Google Play launch
-- [ ] Backend deployment to production server
 
 ---
 
-## 👩‍💻 Author
+## 👩‍💻 Built by
 
 **Sena Alanur** — [GitHub @senaalanur](https://github.com/senaalanur)
 

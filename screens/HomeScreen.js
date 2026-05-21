@@ -1,4 +1,4 @@
-import { scheduleStreakMilestone } from '../lib/notifications';
+import { scheduleStreakMilestone, refreshNotifications } from '../lib/notifications';
 import { Lato_400Regular, Lato_700Bold } from '@expo-google-fonts/lato';
 import { PlayfairDisplay_700Bold } from '@expo-google-fonts/playfair-display';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -108,6 +108,8 @@ export default function HomeScreen({ navigation }) {
       u.soul = newSoul.id;
       await AsyncStorage.setItem('lumaid_user', JSON.stringify(u));
     }
+    // Refresh notifications so persona-specific messages update after soul switch
+    await refreshNotifications();
   };
 
   const logMood = async (moodId) => {
@@ -126,6 +128,8 @@ export default function HomeScreen({ navigation }) {
     while (daySet.has(d.toDateString())) { s++; d.setDate(d.getDate() - 1); }
     setStreak(s);
     scheduleStreakMilestone(s);
+    // Refresh notifications — cancels tonight's streak warning since user already checked in
+    await refreshNotifications();
   };
 
   const greeting = () => {
@@ -160,10 +164,10 @@ export default function HomeScreen({ navigation }) {
       >
         {/* Header */}
         <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
-          <Text style={styles.greeting}>{greeting()}</Text>
-          <Text style={styles.userName}>{user?.name ?? '...'}</Text>
-        </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
+            <Text style={styles.greeting}>{greeting()}</Text>
+            <Text style={styles.userName}>{user?.name ?? '...'}</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             style={[styles.soulBadge, { borderColor: soul.color + '60' }]}
             onPress={() => {
@@ -286,30 +290,10 @@ export default function HomeScreen({ navigation }) {
           </View>
         </View>
 
-        {/* Action row */}
+        {/* Action row — V2 features hidden */}
         <View style={styles.actionRow}>
-          <TouchableOpacity
-            style={[styles.actionCard, { borderColor: soul.color + '30' }]}
-            onPress={() => navigation.navigate('Characters')}
-          >
-            <View style={[styles.actionIcon, { backgroundColor: soul.color + '15' }]}>
-              <Text style={styles.actionEmoji}>✦</Text>
-            </View>
-            <Text style={styles.actionTitle}>Characters</Text>
-            <Text style={styles.actionSub}>Your AI companions</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.actionCard, { borderColor: COLORS.cyan + '30' }]}
-            onPress={() => navigation.navigate('WeeklyRecap')}
-          >
-            <View style={[styles.actionIcon, { backgroundColor: COLORS.cyanSoft }]}>
-              <Text style={styles.actionEmoji}>📊</Text>
-            </View>
-            <Text style={styles.actionTitle}>Weekly Recap</Text>
-            <Text style={styles.actionSub}>Mood + insights</Text>
-          </TouchableOpacity>
-
+          {/* V2 — hidden: Characters */}
+          {/* V2 — hidden: Weekly Recap */}
           <TouchableOpacity
             style={[styles.actionCard, { borderColor: COLORS.accent + '30' }]}
             onPress={() => navigation.navigate('Journal')}
@@ -351,7 +335,6 @@ export default function HomeScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: COLORS.bg },
-
   blobTop: {
     position: 'absolute',
     width: width * 1.4,
@@ -371,12 +354,10 @@ const styles = StyleSheet.create({
     opacity: 0.15,
     zIndex: 0,
   },
-
   scroll: {
     paddingTop: Platform.OS === 'ios' ? 64 : 40,
     paddingHorizontal: 16,
   },
-
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -409,7 +390,6 @@ const styles = StyleSheet.create({
   soulBadgeDot: { width: 7, height: 7, borderRadius: 4 },
   soulBadgeName: { fontFamily: 'Lato_700Bold', fontSize: 13 },
   soulChevron: { fontSize: 10, fontFamily: 'Lato_700Bold' },
-
   streakBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -424,7 +404,6 @@ const styles = StyleSheet.create({
   streakFire: { fontSize: 14 },
   streakText: { fontFamily: 'Lato_700Bold', fontSize: 14 },
   streakSub: { fontFamily: 'Lato_400Regular', fontSize: 13, color: COLORS.muted },
-
   soulPicker: {
     backgroundColor: COLORS.bgCard,
     borderWidth: 1,
@@ -454,7 +433,6 @@ const styles = StyleSheet.create({
   soulPickerName: { fontFamily: 'Lato_700Bold', fontSize: 14, marginBottom: 1 },
   soulPickerTag: { fontFamily: 'Lato_400Regular', fontSize: 11, color: COLORS.muted },
   activeCheck: { fontFamily: 'Lato_700Bold', fontSize: 16 },
-
   orbContainer: { alignItems: 'center', marginVertical: 20 },
   orbRing3: {
     width: 200, height: 200, borderRadius: 100,
@@ -480,7 +458,6 @@ const styles = StyleSheet.create({
   },
   orbCta: { paddingHorizontal: 24, paddingVertical: 11, borderRadius: 50 },
   orbCtaText: { fontFamily: 'Lato_700Bold', fontSize: 14, color: COLORS.white, letterSpacing: 0.3 },
-
   glassCard: {
     backgroundColor: COLORS.surface,
     borderWidth: 1,
@@ -508,7 +485,6 @@ const styles = StyleSheet.create({
     color: COLORS.accent,
     marginBottom: 12,
   },
-
   moodRow: { flexDirection: 'row', justifyContent: 'space-between' },
   moodBtn: { alignItems: 'center', gap: 6, flex: 1 },
   moodOrb: {
@@ -517,7 +493,6 @@ const styles = StyleSheet.create({
   },
   moodEmoji: { fontSize: 18, fontFamily: 'Lato_700Bold' },
   moodLabel: { fontFamily: 'Lato_400Regular', fontSize: 10, color: COLORS.muted },
-
   moodDone: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   moodDoneOrb: {
     width: 56, height: 56, borderRadius: 28,
@@ -532,7 +507,6 @@ const styles = StyleSheet.create({
   },
   streakPillNum: { fontFamily: 'PlayfairDisplay_700Bold', fontSize: 24 },
   streakPillLabel: { fontFamily: 'Lato_400Regular', fontSize: 10 },
-
   toolsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   toolCard: {
     flexDirection: 'row', alignItems: 'center', gap: 7,
@@ -540,7 +514,6 @@ const styles = StyleSheet.create({
   },
   toolEmoji: { fontSize: 14 },
   toolLabel: { fontFamily: 'Lato_700Bold', fontSize: 12 },
-
   actionRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
   actionCard: {
     flex: 1, backgroundColor: COLORS.surface, borderWidth: 1,
@@ -553,7 +526,6 @@ const styles = StyleSheet.create({
   actionEmoji: { fontSize: 20 },
   actionTitle: { fontFamily: 'Lato_700Bold', fontSize: 12, color: COLORS.text, textAlign: 'center' },
   actionSub: { fontFamily: 'Lato_400Regular', fontSize: 10, color: COLORS.muted, textAlign: 'center' },
-
   journeyRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' },
   journeyStat: { alignItems: 'center', gap: 4 },
   journeyNum: { fontFamily: 'PlayfairDisplay_700Bold', fontSize: 30, color: COLORS.text },

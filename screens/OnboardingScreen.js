@@ -16,6 +16,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { supabase } from '../lib/supabase';
 import { COLORS, SOULS } from '../constants';
 
 const { width } = Dimensions.get('window');
@@ -24,6 +25,7 @@ export default function OnboardingScreen({ navigation }) {
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
   const [selectedSoul, setSelectedSoul] = useState('zen');
+  const [newsletterOptIn, setNewsletterOptIn] = useState(true);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const slideAnim = useRef(new Animated.Value(0)).current;
   const orbScale = useRef(new Animated.Value(0.8)).current;
@@ -70,6 +72,24 @@ export default function OnboardingScreen({ navigation }) {
   const finish = async () => {
     const user = { name, soul: selectedSoul, createdAt: Date.now() };
     await AsyncStorage.setItem('lumaid_user', JSON.stringify(user));
+
+    // Save newsletter preference to Supabase if user is logged in
+    if (newsletterOptIn) {
+      try {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (authUser) {
+          await supabase.from('email_subscribers').upsert({
+            user_id: authUser.id,
+            email: authUser.email,
+            subscribed: true,
+            updated_at: new Date().toISOString(),
+          });
+        }
+      } catch (err) {
+        console.log('Newsletter signup skipped:', err.message);
+      }
+    }
+
     navigation.replace('Home');
   };
 
@@ -199,6 +219,25 @@ export default function OnboardingScreen({ navigation }) {
                 <Text key={i} style={[styles.featureItem, { color: soul.color }]}>{f}</Text>
               ))}
             </View>
+
+            {/* Newsletter opt-in */}
+            <TouchableOpacity
+              style={[styles.newsletterRow, { borderColor: newsletterOptIn ? soul.color + '50' : COLORS.border, backgroundColor: newsletterOptIn ? soul.color + '08' : COLORS.surface }]}
+              onPress={() => {
+                setNewsletterOptIn(v => !v);
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.checkbox, { borderColor: newsletterOptIn ? soul.color : COLORS.muted, backgroundColor: newsletterOptIn ? soul.color : 'transparent' }]}>
+                {newsletterOptIn && <Text style={styles.checkmark}>✓</Text>}
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.newsletterTitle}>Notes from the founders ✉️</Text>
+                <Text style={styles.newsletterSub}>Rare updates & personal messages from the people building Lumaid. No spam, ever.</Text>
+              </View>
+            </TouchableOpacity>
+
             <TouchableOpacity style={[styles.btn, { backgroundColor: soul.color }]} onPress={finish}>
               <Text style={styles.btnText}>Open Lumaid →</Text>
             </TouchableOpacity>
@@ -240,175 +279,97 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === 'ios' ? 70 : 50,
     marginBottom: 8,
   },
-  stepDot: {
-    width: 6, height: 6,
-    borderRadius: 3,
-    backgroundColor: COLORS.border,
-  },
+  stepDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: COLORS.border },
   stepDotActive: { height: 6, borderRadius: 3 },
   stepDotDone: { width: 6, height: 6, borderRadius: 3 },
   content: { flex: 1, justifyContent: 'center' },
   center: { alignItems: 'center', paddingVertical: 20 },
-
   logoOrb: {
-    width: 100, height: 100,
-    borderRadius: 50,
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.borderBright,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
+    width: 100, height: 100, borderRadius: 50,
+    backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.borderBright,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 20,
   },
   logoEmoji: { fontSize: 48 },
   logo: {
-    fontFamily: 'PlayfairDisplay_700Bold',
-    fontSize: 48,
-    color: COLORS.text,
-    letterSpacing: 8,
-    marginBottom: 12,
+    fontFamily: 'PlayfairDisplay_700Bold', fontSize: 48,
+    color: COLORS.text, letterSpacing: 8, marginBottom: 12,
   },
   tagline: {
-    fontFamily: 'Lato_700Bold',
-    fontSize: 18,
-    color: COLORS.text,
-    marginBottom: 12,
-    textAlign: 'center',
+    fontFamily: 'Lato_700Bold', fontSize: 18,
+    color: COLORS.text, marginBottom: 12, textAlign: 'center',
   },
   sub: {
-    fontFamily: 'Lato_400Regular',
-    fontSize: 14,
-    color: COLORS.textSoft,
-    textAlign: 'center',
-    lineHeight: 23,
-    marginBottom: 36,
-    maxWidth: 290,
+    fontFamily: 'Lato_400Regular', fontSize: 14,
+    color: COLORS.textSoft, textAlign: 'center',
+    lineHeight: 23, marginBottom: 36, maxWidth: 290,
   },
   stepLabel: {
-    fontFamily: 'Lato_700Bold',
-    fontSize: 11,
-    color: COLORS.muted,
-    letterSpacing: 0.2,
-    marginBottom: 16,
+    fontFamily: 'Lato_700Bold', fontSize: 11,
+    color: COLORS.muted, letterSpacing: 0.2, marginBottom: 16,
   },
   question: {
-    fontFamily: 'PlayfairDisplay_700Bold',
-    fontSize: 34,
-    color: COLORS.text,
-    textAlign: 'center',
-    lineHeight: 44,
-    marginBottom: 16,
+    fontFamily: 'PlayfairDisplay_700Bold', fontSize: 34,
+    color: COLORS.text, textAlign: 'center', lineHeight: 44, marginBottom: 16,
   },
   inputWrap: {
-    width: '100%',
-    backgroundColor: COLORS.surface,
-    borderRadius: 18,
-    borderWidth: 1.5,
-    marginBottom: 24,
+    width: '100%', backgroundColor: COLORS.surface,
+    borderRadius: 18, borderWidth: 1.5, marginBottom: 24,
   },
   input: {
-    fontFamily: 'Lato_400Regular',
-    fontSize: 17,
-    color: COLORS.text,
-    paddingHorizontal: 22,
-    paddingVertical: 16,
-    textAlign: 'center',
+    fontFamily: 'Lato_400Regular', fontSize: 17, color: COLORS.text,
+    paddingHorizontal: 22, paddingVertical: 16, textAlign: 'center',
   },
-  btn: {
-    paddingHorizontal: 48,
-    paddingVertical: 16,
-    borderRadius: 50,
-    marginBottom: 14,
-  },
-  btnText: {
-    fontFamily: 'Lato_700Bold',
-    fontSize: 16,
-    color: COLORS.white,
-    letterSpacing: 0.3,
-  },
-  hint: {
-    fontFamily: 'Lato_400Regular',
-    fontSize: 12,
-    color: COLORS.muted,
-  },
-
+  btn: { paddingHorizontal: 48, paddingVertical: 16, borderRadius: 50, marginBottom: 14 },
+  btnText: { fontFamily: 'Lato_700Bold', fontSize: 16, color: COLORS.white, letterSpacing: 0.3 },
+  hint: { fontFamily: 'Lato_400Regular', fontSize: 12, color: COLORS.muted },
   soulGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    justifyContent: 'center',
-    marginBottom: 28,
-    marginTop: 8,
-    width: '100%',
+    flexDirection: 'row', flexWrap: 'wrap', gap: 10,
+    justifyContent: 'center', marginBottom: 28, marginTop: 8, width: '100%',
   },
   soulCard: {
-    width: (width - 72) / 2,
-    backgroundColor: COLORS.surface,
-    borderWidth: 1.5,
-    borderColor: COLORS.border,
-    borderRadius: 22,
-    padding: 18,
-    alignItems: 'center',
-    gap: 6,
+    width: (width - 72) / 2, backgroundColor: COLORS.surface,
+    borderWidth: 1.5, borderColor: COLORS.border, borderRadius: 22,
+    padding: 18, alignItems: 'center', gap: 6,
   },
   soulOrb: {
-    width: 52, height: 52,
-    borderRadius: 26,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 4,
+    width: 52, height: 52, borderRadius: 26, borderWidth: 1,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 4,
   },
   soulEmoji: { fontSize: 26 },
-  soulName: {
-    fontFamily: 'Lato_700Bold',
-    fontSize: 15,
-    color: COLORS.text,
-  },
+  soulName: { fontFamily: 'Lato_700Bold', fontSize: 15, color: COLORS.text },
   soulTagline: {
-    fontFamily: 'Lato_400Regular',
-    fontSize: 10,
-    color: COLORS.muted,
-    textAlign: 'center',
-    lineHeight: 15,
+    fontFamily: 'Lato_400Regular', fontSize: 10,
+    color: COLORS.muted, textAlign: 'center', lineHeight: 15,
   },
   soulCheck: {
-    position: 'absolute',
-    top: 10, right: 10,
-    width: 22, height: 22,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
+    position: 'absolute', top: 10, right: 10,
+    width: 22, height: 22, borderRadius: 11,
+    alignItems: 'center', justifyContent: 'center',
   },
-  soulCheckText: {
-    color: COLORS.white,
-    fontSize: 12,
-    fontFamily: 'Lato_700Bold',
-  },
-
+  soulCheckText: { color: COLORS.white, fontSize: 12, fontFamily: 'Lato_700Bold' },
   readyOrb: {
-    width: 110, height: 110,
-    borderRadius: 55,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 28,
+    width: 110, height: 110, borderRadius: 55, borderWidth: 2,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 28,
   },
   readyEmoji: { fontSize: 50 },
-
   featureList: {
-    width: '100%',
-    backgroundColor: COLORS.surface,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    padding: 20,
-    gap: 12,
-    marginBottom: 28,
+    width: '100%', backgroundColor: COLORS.surface,
+    borderRadius: 18, borderWidth: 1, borderColor: COLORS.border,
+    padding: 20, gap: 12, marginBottom: 16,
   },
-  featureItem: {
-    fontFamily: 'Lato_700Bold',
-    fontSize: 14,
-    lineHeight: 20,
+  featureItem: { fontFamily: 'Lato_700Bold', fontSize: 14, lineHeight: 20 },
+
+  // Newsletter
+  newsletterRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    width: '100%', borderWidth: 1.5, borderRadius: 18,
+    padding: 16, marginBottom: 20,
   },
+  checkbox: {
+    width: 24, height: 24, borderRadius: 7, borderWidth: 2,
+    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+  },
+  checkmark: { color: COLORS.white, fontSize: 13, fontFamily: 'Lato_700Bold' },
+  newsletterTitle: { fontFamily: 'Lato_700Bold', fontSize: 13, color: COLORS.text, marginBottom: 3 },
+  newsletterSub: { fontFamily: 'Lato_400Regular', fontSize: 11, color: COLORS.muted, lineHeight: 16 },
 });
