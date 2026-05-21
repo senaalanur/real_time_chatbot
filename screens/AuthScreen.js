@@ -23,8 +23,8 @@ import { COLORS } from '../constants';
 const { width } = Dimensions.get('window');
 
 // ── Replace these with your real URLs before launch ──────────────────────────
-const TERMS_URL = 'https://lumaid.app/terms';
-const PRIVACY_URL = 'https://lumaid.app/privacy';
+const TERMS_URL = 'https://lumaid-legal.vercel.app';
+const PRIVACY_URL = 'https://lumaid-legal.vercel.app';
 
 export default function AuthScreen({ navigation }) {
   // 'login' | 'signup' | 'forgot'
