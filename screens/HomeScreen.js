@@ -187,7 +187,7 @@ export default function HomeScreen({ navigation }) {
         {streak >= 2 && (
           <View style={[styles.streakBanner, { borderColor: soul.color + '40' }]}>
             <Text style={[styles.streakFire, { color: soul.color }]}>✦</Text>
-            <Text style={[styles.streakText, { color: soul.color }]}>{streak} day streak</Text>
+            <Text style={[styles.streakText, { color: soul.color }]}>🔥 {streak} day streak</Text>
             <Text style={styles.streakSub}>keep it going</Text>
           </View>
         )}
@@ -317,7 +317,7 @@ export default function HomeScreen({ navigation }) {
             <View style={styles.journeyDivider} />
             <View style={styles.journeyStat}>
               <Text style={[styles.journeyNum, { color: COLORS.cyan }]}>{streak}</Text>
-              <Text style={styles.journeyLabel}>day streak</Text>
+              <Text style={styles.journeyLabel}>🔥 day streak</Text>
             </View>
             <View style={styles.journeyDivider} />
             <View style={styles.journeyStat}>
