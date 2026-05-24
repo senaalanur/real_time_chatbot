@@ -8,31 +8,27 @@ import { supabase } from './lib/supabase';
 import { registerForPushNotifications, scheduleDailyReminder } from './lib/notifications';
 
 import AuthScreen from './screens/AuthScreen';
-// import CharactersScreen from './screens/CharactersScreen';
 import ChatScreen from './screens/ChatScreen';
 import HomeScreen from './screens/HomeScreen';
 import JournalScreen from './screens/JournalScreen';
 import OnboardingScreen from './screens/OnboardingScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import SplashScreen from './screens/SplashScreen';
-// V2 — hidden until ready
 
+// import CharacterBuilderScreen from './screens/CharacterBuilderScreen';
+// import CharactersScreen from './screens/CharactersScreen';
+// import WeeklyRecapScreen from './screens/WeeklyRecapScreen';
 
 const Stack = createNativeStackNavigator();
 
 export default function App() {
   const [session, setSession] = useState(null);
   const [isOnboarded, setIsOnboarded] = useState(null);
-  const [isGuest, setIsGuest] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     registerForPushNotifications().then(status => {
       if (status === 'granted') scheduleDailyReminder(20, 0);
-    });
-
-    AsyncStorage.getItem('lumaid_guest').then(val => {
-      if (val === 'true') setIsGuest(true);
     });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -41,30 +37,26 @@ export default function App() {
 
     supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
-      if (session) {
-        setIsGuest(false);
-        AsyncStorage.removeItem('lumaid_guest');
-      }
     });
   }, []);
 
   useEffect(() => {
-    if (session === null && !isGuest && loading) {
+    if (session === null && loading) {
       setLoading(false);
       return;
     }
-    if (session || isGuest) {
+    if (session) {
       AsyncStorage.getItem('lumaid_user').then(val => {
         setIsOnboarded(!!val);
         setLoading(false);
       });
     }
-  }, [session, isGuest]);
+  }, [session]);
 
   if (loading) return <SplashScreen />;
 
-  const showAuth = !session && !isGuest;
-  const showOnboarding = (session || isGuest) && !isOnboarded;
+  const showAuth = !session;
+  const showOnboarding = session && !isOnboarded;
 
   return (
     <SafeAreaProvider>
@@ -79,11 +71,11 @@ export default function App() {
           <Stack.Screen name="Home" component={HomeScreen} />
           <Stack.Screen name="Chat" component={ChatScreen} />
           <Stack.Screen name="Journal" component={JournalScreen} />
-          {/* V2 — uncomment when ready to launch these features */}
+          <Stack.Screen name="Profile" component={ProfileScreen} />
+          {/* V2 — uncomment when ready */}
           {/* <Stack.Screen name="Characters" component={CharactersScreen} /> */}
           {/* <Stack.Screen name="CharacterBuilder" component={CharacterBuilderScreen} /> */}
-
-          <Stack.Screen name="Profile" component={ProfileScreen} />
+          {/* <Stack.Screen name="WeeklyRecap" component={WeeklyRecapScreen} /> */}
         </Stack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>

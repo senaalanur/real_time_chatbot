@@ -68,14 +68,6 @@ export default function AuthScreen({ navigation }) {
     });
   };
 
-  // ── Guest ──────────────────────────────────────────────────────────────────
-  const handleGuest = async () => {
-    await AsyncStorage.setItem('lumaid_guest', 'true');
-    // Trigger App.js to re-evaluate by replacing with Home
-    // App.js will redirect to Onboarding since lumaid_user isn't set yet
-    navigation.replace('Home');
-  };
-
   // ── Forgot password ────────────────────────────────────────────────────────
   const handleForgot = async () => {
     setError('');
@@ -298,14 +290,7 @@ export default function AuthScreen({ navigation }) {
                     : 'Sign In →'}
                 </Text>
               )}
-            </TouchableOpacity>
-
-            {/* Guest button */}
-            {!isForgot && (
-              <TouchableOpacity style={styles.guestBtn} onPress={handleGuest}>
-                <Text style={styles.guestText}>Continue as Guest</Text>
-              </TouchableOpacity>
-            )}
+            </TouchableOpacity>)}
           </View>
 
           {/* Switch mode footer */}
@@ -504,20 +489,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: COLORS.white,
     letterSpacing: 0.3,
-  },
-
-  guestBtn: {
-    borderRadius: 50,
-    paddingVertical: 14,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    backgroundColor: COLORS.surface,
-  },
-  guestText: {
-    fontFamily: 'Lato_400Regular',
-    fontSize: 15,
-    color: COLORS.textSoft,
   },
 
   footer: {
