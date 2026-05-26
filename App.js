@@ -23,7 +23,7 @@ const Stack = createNativeStackNavigator();
 
 export default function App() {
   const [session, setSession] = useState(undefined); // undefined = not yet loaded
-  const [isOnboarded, setIsOnboarded] = useState(null);
+  const [isOnboarded, setIsOnboarded] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
