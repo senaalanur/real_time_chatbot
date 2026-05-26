@@ -22,7 +22,7 @@ import SplashScreen from './screens/SplashScreen';
 const Stack = createNativeStackNavigator();
 
 export default function App() {
-  const [session, setSession] = useState(undefined); // undefined = not yet loaded
+  const [session, setSession] = useState(undefined);
   const [isOnboarded, setIsOnboarded] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -31,12 +31,10 @@ export default function App() {
       if (status === 'granted') scheduleDailyReminder(20, 0);
     });
 
-    // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session); // null = no session, object = logged in
+      setSession(session);
     });
 
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
     });
@@ -45,16 +43,13 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    // Wait until session is determined (not undefined)
     if (session === undefined) return;
 
     if (session === null) {
-      // No user logged in
       setLoading(false);
       return;
     }
 
-    // User is logged in, check onboarding
     AsyncStorage.getItem('lumaid_user').then(val => {
       setIsOnboarded(!!val);
       setLoading(false);
@@ -63,19 +58,19 @@ export default function App() {
 
   if (loading || session === undefined) return <SplashScreen />;
 
-  const showAuth = session === null;
-  const showOnboarding = session && !isOnboarded;
+  // Determine initial route
+  const initialRoute = session === null ? 'Auth' : !isOnboarded ? 'Onboarding' : 'Home';
 
   return (
     <SafeAreaProvider>
       <NavigationContainer>
         <StatusBar style="light" />
-        <Stack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
-          {showAuth ? (
-            <Stack.Screen name="Auth" component={AuthScreen} />
-          ) : showOnboarding ? (
-            <Stack.Screen name="Onboarding" component={OnboardingScreen} />
-          ) : null}
+        <Stack.Navigator
+          initialRouteName={initialRoute}
+          screenOptions={{ headerShown: false, animation: 'fade' }}
+        >
+          <Stack.Screen name="Auth" component={AuthScreen} />
+          <Stack.Screen name="Onboarding" component={OnboardingScreen} />
           <Stack.Screen name="Home" component={HomeScreen} />
           <Stack.Screen name="Chat" component={ChatScreen} />
           <Stack.Screen name="Journal" component={JournalScreen} />

@@ -213,8 +213,8 @@ export default function OnboardingScreen({ navigation }) {
             <View style={styles.featureList}>
               {[
                 '✦  Daily mood tracking & streaks',
-                '✦  AI-generated weekly recap',
-                '✦  Custom character companions',
+                '✦  Your companion remembers you',
+                '✦  4 unique AI companions',
               ].map((f, i) => (
                 <Text key={i} style={[styles.featureItem, { color: soul.color }]}>{f}</Text>
               ))}
