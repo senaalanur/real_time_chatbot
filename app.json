@@ -11,7 +11,10 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.senalanur.lumaid",
-      "buildNumber": "1"
+      "buildNumber": "1",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -39,7 +42,9 @@
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#0D0F14",
-          "dark": { "backgroundColor": "#0D0F14" }
+          "dark": {
+            "backgroundColor": "#0D0F14"
+          }
         }
       ],
       "expo-font"

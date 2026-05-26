@@ -14,7 +14,7 @@ import JournalScreen from './screens/JournalScreen';
 import OnboardingScreen from './screens/OnboardingScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import SplashScreen from './screens/SplashScreen';
-
+// V2 — uncomment when ready
 // import CharacterBuilderScreen from './screens/CharacterBuilderScreen';
 // import CharactersScreen from './screens/CharactersScreen';
 // import WeeklyRecapScreen from './screens/WeeklyRecapScreen';
@@ -22,7 +22,7 @@ import SplashScreen from './screens/SplashScreen';
 const Stack = createNativeStackNavigator();
 
 export default function App() {
-  const [session, setSession] = useState(null);
+  const [session, setSession] = useState(undefined); // undefined = not yet loaded
   const [isOnboarded, setIsOnboarded] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -31,31 +31,39 @@ export default function App() {
       if (status === 'granted') scheduleDailyReminder(20, 0);
     });
 
+    // Get initial session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session); // null = no session, object = logged in
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
     });
 
-    supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
+    return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
-    if (session === null && loading) {
+    // Wait until session is determined (not undefined)
+    if (session === undefined) return;
+
+    if (session === null) {
+      // No user logged in
       setLoading(false);
       return;
     }
-    if (session) {
-      AsyncStorage.getItem('lumaid_user').then(val => {
-        setIsOnboarded(!!val);
-        setLoading(false);
-      });
-    }
+
+    // User is logged in, check onboarding
+    AsyncStorage.getItem('lumaid_user').then(val => {
+      setIsOnboarded(!!val);
+      setLoading(false);
+    });
   }, [session]);
 
-  if (loading) return <SplashScreen />;
+  if (loading || session === undefined) return <SplashScreen />;
 
-  const showAuth = !session;
+  const showAuth = session === null;
   const showOnboarding = session && !isOnboarded;
 
   return (
