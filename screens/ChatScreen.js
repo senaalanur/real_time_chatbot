@@ -312,11 +312,23 @@ export default function ChatScreen({ route, navigation }) {
     }
   };
 
+  const getVoiceProfile = () => {
+    const profiles = {
+      sage:  { rate: 0.82, pitch: 0.95 }, // slow, warm, grounded
+      zen:   { rate: 0.78, pitch: 0.90 }, // very slow, calm, soft
+      spark: { rate: 1.10, pitch: 1.10 }, // fast, energetic, upbeat
+      cass:  { rate: 1.05, pitch: 1.15 }, // quick, breezy, unbothered
+    };
+    return profiles[soulId] ?? { rate: 0.9, pitch: 1.0 };
+  };
+
   const speakMessage = (text) => {
     Speech.stop();
     setIsSpeaking(true);
+    const { rate, pitch } = getVoiceProfile();
     Speech.speak(text, {
-      rate: 0.9, pitch: 1.0,
+      rate,
+      pitch,
       onDone: () => setIsSpeaking(false),
       onError: () => setIsSpeaking(false),
     });
