@@ -82,6 +82,8 @@ export default function ChatScreen({ route, navigation }) {
   const [sessionLatencies, setSessionLatencies] = useState([]);
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [memory, setMemory] = useState('');
+  const [showContinueModal, setShowContinueModal] = useState(false);
+  const [savedMessagesCache, setSavedMessagesCache] = useState(null);
 
   const flatRef = useRef(null);
   const fadeIn = useRef(new Animated.Value(0)).current;
@@ -117,28 +119,35 @@ export default function ChatScreen({ route, navigation }) {
     if (characterId && !character) return;
 
     const initChat = async () => {
-      const chatKey = getChatKey(soulId, characterId);
+      // Always use a fixed key per soul (not session-based) for continue feature
+      const chatKey = characterId
+        ? `lumaid_chat_char_${characterId}`
+        : `lumaid_chat_soul_${soulId}`;
+
       const stored = await AsyncStorage.getItem(chatKey);
       const savedMessages = stored ? JSON.parse(stored) : null;
 
-      if (savedMessages && savedMessages.length > 0) {
-        // Restore previous session for this soul/character
-        setMessages(savedMessages);
+      const firstMsg = {
+        id: 'init',
+        role: 'assistant',
+        timestamp: Date.now(),
+        text: character
+          ? `Hey, I'm ${character.name}. What's on your mind?`
+          : {
+              sage: "I'm here. Take a breath. What's on your mind today?",
+              spark: "Hey! What are we tackling today?",
+              zen: "Hello. I'm with you. Whenever you're ready.",
+              cass: "Ready.",
+            }[soulId] ?? 'Hello.',
+      };
+
+      if (savedMessages && savedMessages.length > 1) {
+        // Has previous messages — show continue modal
+        setSavedMessagesCache(savedMessages);
+        setMessages([firstMsg]);
+        setShowContinueModal(true);
       } else {
-        // First time opening this soul/character
-        const firstMsg = {
-          id: 'init',
-          role: 'assistant',
-          timestamp: Date.now(),
-          text: character
-            ? `Hey, I'm ${character.name}. What's on your mind?`
-            : {
-                sage: "I'm here. Take a breath. What's on your mind today?",
-                spark: "Hey! What are we tackling today?",
-                zen: "Hello. I'm with you. Whenever you're ready.",
-                ghost: "Ready.",
-              }[soulId] ?? 'Hello.',
-        };
+        // No history — start fresh directly
         setMessages([firstMsg]);
         if (quickActionPrompt) {
           setTimeout(() => sendMessage(quickActionPrompt, [firstMsg]), 800);
@@ -257,6 +266,37 @@ export default function ChatScreen({ route, navigation }) {
   const activeTagline = character
     ? `Warmth ${character.warmth} · Energy ${character.energy}`
     : soul.tagline;
+
+  const handleContinue = () => {
+    setShowContinueModal(false);
+    if (savedMessagesCache) {
+      setMessages(savedMessagesCache);
+    }
+  };
+
+  const handleStartFresh = async () => {
+    setShowContinueModal(false);
+    setSavedMessagesCache(null);
+    // Clear stored history for this soul
+    const chatKey = characterId
+      ? `lumaid_chat_char_${characterId}`
+      : `lumaid_chat_soul_${soulId}`;
+    await AsyncStorage.removeItem(chatKey);
+    const firstMsg = {
+      id: 'init',
+      role: 'assistant',
+      timestamp: Date.now(),
+      text: character
+        ? `Hey, I'm ${character.name}. What's on your mind?`
+        : {
+            sage: "I'm here. Take a breath. What's on your mind today?",
+            spark: "Hey! What are we tackling today?",
+            zen: "Hello. I'm with you. Whenever you're ready.",
+            cass: "Ready.",
+          }[soulId] ?? 'Hello.',
+    };
+    setMessages([firstMsg]);
+  };
 
   const sendMessage = async (textOverride = null, msgsOverride = null) => {
     const text = (textOverride ?? input).trim();
@@ -439,6 +479,29 @@ export default function ChatScreen({ route, navigation }) {
     </Animated.View>
   );
 
+  const ContinueModal = () => (
+    <View style={styles.modalOverlay}>
+      <View style={[styles.modalBox, { borderColor: activeColor + '40' }]}>
+        <View style={[styles.modalAvatar, { backgroundColor: activeGlow, borderColor: activeColor + '40' }]}>
+          {activeInitial
+            ? <Text style={[styles.modalAvatarText, { color: activeColor }]}>{activeInitial}</Text>
+            : <Text style={{ fontSize: 24 }}>{soul.emoji}</Text>}
+        </View>
+        <Text style={styles.modalTitle}>{activeName}</Text>
+        <Text style={styles.modalSub}>Continue where you left off?</Text>
+        <TouchableOpacity
+          style={[styles.modalBtnPrimary, { backgroundColor: activeColor }]}
+          onPress={handleContinue}
+        >
+          <Text style={styles.modalBtnPrimaryText}>Continue →</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.modalBtnSecondary} onPress={handleStartFresh}>
+          <Text style={styles.modalBtnSecondaryText}>Start fresh</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
   return (
     <KeyboardAvoidingView
       style={styles.root}
@@ -446,6 +509,7 @@ export default function ChatScreen({ route, navigation }) {
       keyboardVerticalOffset={0}
     >
       <View style={[styles.bgGlow, { backgroundColor: activeGlow }]} pointerEvents="none" />
+      {showContinueModal && <ContinueModal />}
 
       <View style={styles.header}>
         <TouchableOpacity
@@ -629,4 +693,23 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', borderWidth: 1,
   },
   sendIcon: { fontSize: 18, fontFamily: 'Lato_700Bold' },
+  modalOverlay: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.75)', alignItems: 'center', justifyContent: 'center', zIndex: 999,
+  },
+  modalBox: {
+    backgroundColor: '#0F0C1A', borderWidth: 1, borderRadius: 28,
+    padding: 28, width: '78%', alignItems: 'center', gap: 10,
+  },
+  modalAvatar: {
+    width: 64, height: 64, borderRadius: 20, borderWidth: 1.5,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 4,
+  },
+  modalAvatarText: { fontFamily: 'Lato_700Bold', fontSize: 22 },
+  modalTitle: { fontFamily: 'PlayfairDisplay_700Bold', fontSize: 22, color: '#FFFFFF' },
+  modalSub: { fontFamily: 'Lato_400Regular', fontSize: 14, color: '#64748B', marginBottom: 8, textAlign: 'center' },
+  modalBtnPrimary: { width: '100%', paddingVertical: 14, borderRadius: 50, alignItems: 'center' },
+  modalBtnPrimaryText: { fontFamily: 'Lato_700Bold', fontSize: 15, color: '#FFFFFF', letterSpacing: 0.3 },
+  modalBtnSecondary: { width: '100%', paddingVertical: 12, alignItems: 'center' },
+  modalBtnSecondaryText: { fontFamily: 'Lato_400Regular', fontSize: 14, color: '#64748B' },
 });

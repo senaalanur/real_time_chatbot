@@ -28,7 +28,13 @@ export default function App() {
 
   useEffect(() => {
     registerForPushNotifications().then(status => {
-      if (status === 'granted') scheduleDailyReminder(20, 0);
+      console.log('[Notifications] Permission status:', status);
+      if (status === 'granted') {
+        scheduleDailyReminder(20, 0);
+        console.log('[Notifications] Daily reminder scheduled for 8pm');
+      } else {
+        console.log('[Notifications] Permission not granted:', status);
+      }
     });
 
     supabase.auth.getSession().then(({ data: { session } }) => {

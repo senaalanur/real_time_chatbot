@@ -84,7 +84,7 @@ export default function JournalScreen({ navigation }) {
         {/* Stats Row */}
         <View style={styles.statsRow}>
           {[
-            { value: stats.avg || '—', label: 'AVG MOOD', color: COLORS.accent },
+            { value: parseFloat(stats.avg) >= 4 ? '✦ Glowing' : parseFloat(stats.avg) >= 3 ? '◎ Steady' : parseFloat(stats.avg) > 0 ? '◌ Heavy' : '—', label: 'AVG MOOD', color: COLORS.accent },
             { value: stats.streak, label: 'DAY STREAK', color: COLORS.cyan },
             { value: stats.best?.emoji ?? '—', label: 'BEST MOOD', color: COLORS.success, big: true },
           ].map((s, i) => (
@@ -147,18 +147,26 @@ export default function JournalScreen({ navigation }) {
         </View>
 
         {/* Lumaid Insight */}
-        {history.length >= 3 && (
+        {history.length >= 1 && (
           <View style={[styles.glassCard, styles.insightCard]}>
             <View style={styles.insightHeader}>
               <Text style={[styles.insightIcon, { color: COLORS.accent }]}>✦</Text>
               <Text style={styles.cardLabel}>LUMAID'S INSIGHT</Text>
             </View>
             <Text style={styles.insightText}>
-              {parseFloat(stats.avg) >= 4
-                ? "You've been consistently positive lately. Lumaid notices — and is genuinely glad."
-                : parseFloat(stats.avg) >= 3
-                ? "Your mood has been balanced. Some highs, some lows — that's a full and honest life."
-                : "It's been a harder stretch. Lumaid remembers every day. You don't have to carry it alone."}
+              {(() => {
+              const avg = parseFloat(stats.avg);
+              const count = history.length;
+              const recentMoods = history.slice(-3).map(e => e.moodId);
+              const hasRough = recentMoods.includes('rough') || recentMoods.includes('low');
+              const allGood = recentMoods.every(m => m === 'great' || m === 'good');
+              if (count === 1) return "First check-in. That took something. Lumaid is here for whatever comes next.";
+              if (allGood && avg >= 4) return "You've been showing up with real energy lately. Lumaid notices — keep going.";
+              if (hasRough && avg < 3) return "It's been a harder stretch. Every entry here is an act of courage. You're not alone in this.";
+              if (avg >= 4) return "Consistently positive lately. Lumaid is genuinely glad — and curious what's been working for you.";
+              if (avg >= 3) return "Balanced stretch — some highs, some lows. That's a full and honest life. Lumaid sees all of it.";
+              return "The lows have been real. Lumaid holds every one of these days. You don't have to carry it alone.";
+            })()}
             </Text>
           </View>
         )}
