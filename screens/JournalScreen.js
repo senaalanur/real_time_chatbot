@@ -84,7 +84,7 @@ export default function JournalScreen({ navigation }) {
         {/* Stats Row */}
         <View style={styles.statsRow}>
           {[
-            { value: parseFloat(stats.avg) >= 4 ? '✦ Glowing' : parseFloat(stats.avg) >= 3 ? '◎ Steady' : parseFloat(stats.avg) > 0 ? '◌ Heavy' : '—', label: 'AVG MOOD', color: COLORS.accent },
+            { value: parseFloat(stats.avg) >= 4 ? '✦' : parseFloat(stats.avg) >= 3 ? '◎' : parseFloat(stats.avg) > 0 ? '◌' : '—', label: parseFloat(stats.avg) >= 4 ? 'GLOWING' : parseFloat(stats.avg) >= 3 ? 'STEADY' : parseFloat(stats.avg) > 0 ? 'HEAVY' : 'AVG MOOD', color: COLORS.accent },
             { value: stats.streak, label: 'DAY STREAK', color: COLORS.cyan },
             { value: stats.best?.emoji ?? '—', label: 'BEST MOOD', color: COLORS.success, big: true },
           ].map((s, i) => (

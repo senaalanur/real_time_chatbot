@@ -369,6 +369,9 @@ export default function ChatScreen({ route, navigation }) {
     Speech.speak(text, {
       rate,
       pitch,
+      _voiceIndex: 0,
+      // iOS: bypass silent mode
+      ...(Platform.OS === 'ios' ? { iosAudioCategory: 'Playback' } : {}),
       onDone: () => setIsSpeaking(false),
       onError: () => setIsSpeaking(false),
     });
