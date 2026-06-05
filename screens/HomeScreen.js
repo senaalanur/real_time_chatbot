@@ -248,18 +248,8 @@ function HomeScreenInner({ navigation, route }) {
     const histRaw  = await AsyncStorage.getItem('lumaid_mood_history');
     if (userRaw) { const u = JSON.parse(userRaw); setUser(u); setSoul(SOULS[u.soul] || SOULS.zen); }
 
-    // Fetch real message count from Supabase for current user
-    try {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (authUser) {
-        const { count } = await supabase
-          .from('conversations')
-          .select('*', { count: 'exact', head: true })
-          .eq('user_id', authUser.id)
-          .eq('role', 'user');
-        if (count !== null) setStats({ totalChats: count });
-      }
-    } catch (_) {}
+    const statsRaw = await AsyncStorage.getItem('lumaid_stats');
+    if (statsRaw) setStats(JSON.parse(statsRaw));
     if (moodRaw) { const m = JSON.parse(moodRaw); if (m.date === new Date().toDateString()) setTodayMood(m.moodId); }
     if (histRaw) {
       const hist = JSON.parse(histRaw);
