@@ -24,7 +24,7 @@ import { COLORS, MOODS } from '../constants';
 const { width } = Dimensions.get('window');
 const CARD_W = width - 32;
 const CARD_H = CARD_W * (19.5 / 9);
-const BACKEND_URL = 'https://lumaid-backend-production.up.railway.app';
+const BACKEND_URL = 'https://lumaid-backend-production-bee3.up.railway.app';
 
 const getMoodColor = (id) => MOODS.find(m => m.id === id)?.color ?? COLORS.muted;
 const getMoodValue = (id) => MOODS.find(m => m.id === id)?.value ?? 3;
