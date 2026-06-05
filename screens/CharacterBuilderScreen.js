@@ -188,7 +188,7 @@ export default function CharacterBuilderScreen({ navigation, route }) {
       charData.user_id = user.id;
       let result;
       if (existing) {
-        result = await supabase.from('characters').update(charData).eq('id', existing.id);
+        result = await supabase.from('characters').update(charData).eq('id', existing.id).eq('user_id', user.id);
       } else {
         result = await supabase.from('characters').insert(charData);
       }

@@ -30,7 +30,9 @@ export default function CharactersScreen({ navigation }) {
   const loadCharacters = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase.from('characters').select('*').order('created_at', { ascending: true });
+      const { data: { user: charUser } } = await supabase.auth.getUser();
+      if (!charUser) return;
+      const { data, error } = await supabase.from('characters').select('*').eq('user_id', charUser.id).order('created_at', { ascending: true });
       if (error) throw error;
       setCharacters(data ?? []);
     } catch (err) {
@@ -42,7 +44,9 @@ export default function CharactersScreen({ navigation }) {
 
   const deleteCharacter = async (id) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    await supabase.from('characters').delete().eq('id', id);
+    const { data: { user: delUser } } = await supabase.auth.getUser();
+    if (!delUser) return;
+    await supabase.from('characters').delete().eq('id', id).eq('user_id', delUser.id);
     loadCharacters();
   };
 
