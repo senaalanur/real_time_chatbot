@@ -6,7 +6,7 @@ import * as Haptics from 'expo-haptics';
 import * as Notifications from 'expo-notifications';
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  Alert, Animated, Dimensions, Linking, Platform,
+  Alert, Animated, AppState, Dimensions, Linking, Platform,
   ScrollView, StyleSheet, Switch, Text,
   TouchableOpacity, View,
 } from 'react-native';
@@ -158,7 +158,16 @@ export default function ProfileScreen({ navigation }) {
       const { status: s } = await Notifications.getPermissionsAsync();
       setNotificationsEnabled(s === 'granted');
     });
-    return unsubscribe;
+
+    // Also check on app state change (when returning from Settings)
+    const subscription = AppState.addEventListener('change', async (state) => {
+      if (state === 'active') {
+        const { status: s } = await Notifications.getPermissionsAsync();
+        setNotificationsEnabled(s === 'granted');
+      }
+    });
+
+    return () => { unsubscribe(); subscription.remove(); };
   };
 
   const handleNotifToggle = async (value) => {
