@@ -4,7 +4,6 @@ import { SpaceMono_400Regular } from '@expo-google-fonts/space-mono';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFonts } from 'expo-font';
 import * as Haptics from 'expo-haptics';
-import * as Speech from 'expo-speech';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -24,7 +23,7 @@ import { COLORS, QUICK_ACTIONS, SOULS, callClaude } from '../constants';
 
 const { width } = Dimensions.get('window');
 const STATS_KEY = 'lumaid_stats';
-const BACKEND_URL = 'https://lumaid-backend-production.up.railway.app';
+const BACKEND_URL = 'https://lumaid-backend-production-bee3.up.railway.app';
 
 // Unique AsyncStorage key per soul or character
 const getChatKey = (soulId, characterId) =>
@@ -78,7 +77,6 @@ export default function ChatScreen({ route, navigation }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isSpeaking, setIsSpeaking] = useState(false);
   const [sessionLatencies, setSessionLatencies] = useState([]);
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [memory, setMemory] = useState('');
@@ -158,7 +156,7 @@ export default function ChatScreen({ route, navigation }) {
     };
 
     initChat();
-    return () => Speech.stop();
+    return () => {};
   }, [character, characterId]);
 
   useEffect(() => {
@@ -362,23 +360,8 @@ export default function ChatScreen({ route, navigation }) {
     return profiles[soulId] ?? { rate: 0.9, pitch: 1.0 };
   };
 
-  const speakMessage = (text) => {
-    Speech.stop();
-    setIsSpeaking(true);
-    const { rate, pitch } = getVoiceProfile();
-    Speech.speak(text, {
-      rate,
-      pitch,
-      _voiceIndex: 0,
-      // iOS: bypass silent mode
-      ...(Platform.OS === 'ios' ? { iosAudioCategory: 'Playback' } : {}),
-      onDone: () => setIsSpeaking(false),
-      onError: () => setIsSpeaking(false),
-    });
-  };
 
   const toggleSpeak = (text) => {
-    if (isSpeaking) { Speech.stop(); setIsSpeaking(false); } else speakMessage(text);
   };
 
   if (!fontsLoaded) return null;
@@ -516,7 +499,7 @@ export default function ChatScreen({ route, navigation }) {
 
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => { Speech.stop(); navigation.goBack(); }}
+          onPress={() => { navigation.goBack(); }}
           style={styles.backBtn}
         >
           <Text style={styles.backText}>←</Text>
@@ -536,12 +519,6 @@ export default function ChatScreen({ route, navigation }) {
             </Text>
           </View>
         </View>
-        <TouchableOpacity style={styles.speakBtn} onPress={() => {
-          const last = [...messages].reverse().find(m => m.role === 'assistant');
-          if (last) toggleSpeak(last.text);
-        }}>
-          <Text style={{ fontSize: 16 }}>{isSpeaking ? '🔊' : '🔇'}</Text>
-        </TouchableOpacity>
       </View>
 
       <FlatList
@@ -627,10 +604,6 @@ const styles = StyleSheet.create({
   headerAvatarInitial: { fontFamily: 'Lato_700Bold', fontSize: 16 },
   headerName: { fontFamily: 'Lato_700Bold', fontSize: 15, color: COLORS.text },
   headerSub: { fontFamily: 'Lato_400Regular', fontSize: 11, color: COLORS.muted, marginTop: 1 },
-  speakBtn: {
-    width: 38, height: 38, borderRadius: 13, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border,
-  },
   msgList: { padding: 16, paddingBottom: 12, gap: 14 },
   msgRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 8, maxWidth: width * 0.88 },
   msgRowUser: { alignSelf: 'flex-end', flexDirection: 'row-reverse' },
@@ -698,21 +671,23 @@ const styles = StyleSheet.create({
   sendIcon: { fontSize: 18, fontFamily: 'Lato_700Bold' },
   modalOverlay: {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.75)', alignItems: 'center', justifyContent: 'center', zIndex: 999,
+    backgroundColor: 'rgba(44,31,0,0.55)', alignItems: 'center', justifyContent: 'center', zIndex: 999,
   },
   modalBox: {
-    backgroundColor: '#0F0C1A', borderWidth: 1, borderRadius: 28,
-    padding: 28, width: '78%', alignItems: 'center', gap: 10,
+    backgroundColor: '#F7F4EC', borderWidth: 1.5, borderRadius: 28,
+    padding: 28, width: '82%', alignItems: 'center', gap: 10,
+    shadowColor: '#F5C832', shadowOpacity: 0.18, shadowRadius: 24, shadowOffset: { width: 0, height: 8 },
+    elevation: 12,
   },
   modalAvatar: {
-    width: 64, height: 64, borderRadius: 20, borderWidth: 1.5,
-    alignItems: 'center', justifyContent: 'center', marginBottom: 4,
+    width: 68, height: 68, borderRadius: 22, borderWidth: 1.5,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 6,
   },
-  modalAvatarText: { fontFamily: 'Lato_700Bold', fontSize: 22 },
-  modalTitle: { fontFamily: 'PlayfairDisplay_700Bold', fontSize: 22, color: '#FFFFFF' },
-  modalSub: { fontFamily: 'Lato_400Regular', fontSize: 14, color: '#64748B', marginBottom: 8, textAlign: 'center' },
-  modalBtnPrimary: { width: '100%', paddingVertical: 14, borderRadius: 50, alignItems: 'center' },
+  modalAvatarText: { fontFamily: 'PlayfairDisplay_700Bold', fontSize: 26 },
+  modalTitle: { fontFamily: 'PlayfairDisplay_700Bold', fontSize: 24, color: '#2C1F00', letterSpacing: -0.3 },
+  modalSub: { fontFamily: 'Lato_400Regular', fontSize: 14, color: '#9B7B2E', marginBottom: 8, textAlign: 'center', lineHeight: 21 },
+  modalBtnPrimary: { width: '100%', paddingVertical: 15, borderRadius: 50, alignItems: 'center', shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } },
   modalBtnPrimaryText: { fontFamily: 'Lato_700Bold', fontSize: 15, color: '#FFFFFF', letterSpacing: 0.3 },
-  modalBtnSecondary: { width: '100%', paddingVertical: 12, alignItems: 'center' },
-  modalBtnSecondaryText: { fontFamily: 'Lato_400Regular', fontSize: 14, color: '#64748B' },
+  modalBtnSecondary: { width: '100%', paddingVertical: 13, alignItems: 'center', borderWidth: 1.5, borderColor: 'rgba(200,170,80,0.35)', borderRadius: 50, marginTop: 2 },
+  modalBtnSecondaryText: { fontFamily: 'Lato_400Regular', fontSize: 14, color: '#9B7B2E' },
 });
