@@ -182,7 +182,13 @@ export default function ChatScreen({ route, navigation }) {
 
   const saveStats = async (msgs) => {
     const statsRaw = await AsyncStorage.getItem(STATS_KEY);
-    const stats = statsRaw ? JSON.parse(statsRaw) : { totalChats: 0 };
+    const stats = statsRaw ? JSON.parse(statsRaw) : { totalChats: 0, date: '' };
+    const today = new Date().toDateString();
+    // Reset daily count if it's a new day
+    if (stats.date !== today) {
+      stats.totalChats = 0;
+      stats.date = today;
+    }
     stats.totalChats = msgs.filter(m => m.role === 'user').length;
     await AsyncStorage.setItem(STATS_KEY, JSON.stringify(stats));
   };
