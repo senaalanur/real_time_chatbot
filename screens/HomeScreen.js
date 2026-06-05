@@ -285,6 +285,7 @@ function HomeScreenInner({ navigation, route }) {
   };
 
   const switchSoul = async (newSoul) => {
+    console.log('[LUMAID] switchSoul called:', newSoul?.id);
     setSoul(newSoul); setShowSoulPicker(false);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     const userRaw = await AsyncStorage.getItem('lumaid_user');
@@ -370,11 +371,6 @@ function HomeScreenInner({ navigation, route }) {
         )}
 
         {/* Soul Picker */}
-        {showSoulPicker && (
-          <TouchableWithoutFeedback onPress={() => setShowSoulPicker(false)}>
-            <View style={styles.soulPickerBackdrop} />
-          </TouchableWithoutFeedback>
-        )}
         {showSoulPicker && (
           <Animated.View style={[styles.soulPicker, {
             opacity: soulPickerAnim,

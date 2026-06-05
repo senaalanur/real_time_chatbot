@@ -194,12 +194,15 @@ export default function ChatScreen({ route, navigation }) {
   };
 
   const saveMessageToSupabase = async (role, content) => {
-    if (!characterId) return;
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         await supabase.from('conversations').insert({
-          user_id: user.id, character_id: characterId, soul_id: null, role, content,
+          user_id: user.id,
+          character_id: characterId || null,
+          soul_id: characterId ? null : soulId,
+          role,
+          content,
         });
       }
     } catch {}
