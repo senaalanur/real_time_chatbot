@@ -215,7 +215,7 @@ export default function ProfileScreen({ navigation }) {
       await supabase.from('email_subscribers').upsert({
         user_id: authUser.id, email: authUser.email,
         subscribed: value, updated_at: new Date().toISOString(),
-      });
+      }, { onConflict: 'user_id' });
     } catch (err) {
       console.log('Newsletter toggle error:', err.message);
       setNewsletterSubscribed(!value);

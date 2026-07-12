@@ -13,7 +13,8 @@
       "bundleIdentifier": "com.senalanur.lumaid",
       "buildNumber": "1",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSUserNotificationUsageDescription": "Lumaid sends daily wellness reminders to help you check in, log your mood, and keep your streak alive."
       }
     },
     "android": {
@@ -34,7 +35,15 @@
     },
     "plugins": [
       "expo-router",
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#C8AA50",
+          "sounds": [],
+          "mode": "production"
+        }
+      ],
       [
         "expo-splash-screen",
         {
