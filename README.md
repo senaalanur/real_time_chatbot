@@ -1,215 +1,107 @@
-# 🌙 Lumaid — AI Wellness Companion
+# Lumaid
 
-> A production-grade AI wellness app built with React Native + Expo. Talk to your AI companion about real life — stress, anxiety, focus, reflection. Track your mood daily, build streaks, and grow with a companion that actually listens.
+An AI wellness companion for iOS, built with React Native and Expo. Users talk with one of four companions, check in with their mood each day, and get a weekly reflection on how their week went.
 
 ![React Native](https://img.shields.io/badge/React_Native-0.81-61DAFB?style=flat&logo=react)
 ![Expo](https://img.shields.io/badge/Expo-54-000000?style=flat&logo=expo)
-![Supabase](https://img.shields.io/badge/Supabase-Auth_+_DB-3ECF8E?style=flat&logo=supabase)
-![Groq](https://img.shields.io/badge/Groq-LLaMA_3.3_70B-F55036?style=flat)
-![Platforms](https://img.shields.io/badge/Platforms-iOS_%7C_Android-lightgrey?style=flat)
-![License](https://img.shields.io/badge/License-MIT-green?style=flat)
+![Supabase](https://img.shields.io/badge/Supabase-Auth_and_DB-3ECF8E?style=flat&logo=supabase)
 
----
+## Features
 
-## ✨ MVP Features
+- **Four companions.** Sage, Spark, Zen, and Cass each have their own voice and approach, from reflective and grounding to upbeat and blunt.
+- **Persistent memory.** A short summary of what matters to the user carries across conversations and companion switches.
+- **Daily mood check-ins.** Five-point mood logging with streaks and a 14-day journal view.
+- **Weekly recap (Pro).** A written reflection on the week, a note from the companion the user talks to most, one suggestion for the week ahead, and a shareable summary card. Free users see their weekly overview and a locked preview.
+- **Voice replies (Pro).** On-device text-to-speech with a distinct voice, pace, and pitch per companion, optional autoplay, and play, pause, and stop controls. Pause and resume are iOS only.
+- **Notifications.** Companion-specific daily reminders, streak reminders, and a Sunday recap reminder.
+- **Wellness tools.** Guided starting points for daily check-ins, venting, evening reflection, anxiety relief, focus, and gratitude.
+- **Subscriptions.** Pro tier managed with RevenueCat. Free accounts have a daily message limit.
+- **Accounts.** Email and password sign-up with email verification and password reset.
 
-| Feature | Details |
+## Architecture
+
+```
+React Native / Expo app
+  |-- Supabase: auth, conversations, memory, usage
+  |-- AsyncStorage: mood history, local chat history
+  |-- RevenueCat: subscription status
+  '-- Backend (Express on Railway)
+        |-- Groq API: chat, memory summaries, weekly recap
+        |-- Resend: transactional email
+        '-- Supabase admin API: email verification, password reset
+```
+
+The app never holds an LLM or email key. All model and email calls go through the backend.
+
+Mood entries are stored on the device only. When a weekly recap is requested, the last seven days of mood entries are sent with the request and are not stored by the server.
+
+## Tech stack
+
+| Area | Technology |
 |---|---|
-| 🔐 **Authentication** | Supabase email/password auth |
-| 🎭 **4 Wellness Personas** | Sage, Spark, Zen, Cass — distinct AI companions with unique personalities |
-| 🌿 **Mood Check-in** | Daily emoji-based mood tracking with streak system |
-| 🧠 **Persistent Memory** | AI remembers context across sessions and soul switches |
-| 🔥 **Streak System** | Daily check-in streaks with milestone notifications |
-| 🔔 **Smart Notifications** | Persona-specific daily reminders + streak warnings |
-| 🌿 **Wellness Tools** | Daily check-in, vent session, evening reflection, anxiety support, gratitude practice, focus mode |
-| 🎙️ **Voice Output** | expo-speech TTS — tap any message to hear it read aloud |
-| 📈 **Mood Journal** | Daily check-ins, 14-day bar chart, streak tracking |
-| 🔒 **Secure Backend** | Node.js/Express proxy — Groq API key never exposed to client |
-| ⚡ **Rate Limiting** | 20 messages/hour per IP — protects API costs |
-| 🎨 **Dark Glassmorphism UI** | Deep navy/black base, frosted glass cards, persona accent colors |
-| ✉️ **Founder Newsletter** | Opt-in at onboarding — personal notes from the Lumaid team |
+| App | React Native, Expo (SDK 54), React Navigation |
+| Auth and data | Supabase |
+| Subscriptions | RevenueCat |
+| Voice | expo-speech |
+| Backend | Node.js, Express, hosted on Railway |
+| Language model | Groq (openai/gpt-oss-120b) |
+| Email | Resend |
 
----
+## Companions
 
-## 📱 Screens
-
-**Auth** — Sign in / Sign up with email and password
-
-**Onboarding** — Welcome → Name → Soul selection → Ready (with newsletter opt-in)
-
-**Home** — Animated breathing orb, soul switcher, wellness tools, mood check-in, streak badge
-
-**Chat** — Empathetic short responses with thinking delay, typing indicator, wellness tools panel, persistent memory, TTS voice output
-
-**Mood Journal** — 14-day mood bar chart, streak + average stats, entry history
-
-**Profile** — Stats, companion info, settings, sign out
-
----
-
-## 🏗️ Architecture
-React Native / Expo
-Auth → Onboarding → Home → Chat / Journal / Profile
-│
-▼
-Node.js / Express Backend (Railway)
-Rate limiting · Groq API proxy · Memory summarization
-API key never leaves server
-│
-▼
-Groq API — LLaMA 3.3 70B
-Soul system prompt + conversation history + persistent memory
-│
-├──────────────────────┐
-▼                      ▼
-Supabase                  AsyncStorage
-Auth + Memory             Chat history per soul
-Email subscribers         Mood history + streak
-
----
-
-## 🎭 Wellness Personas
-
-| Persona | Personality | Best For |
+| Companion | Style | Good for |
 |---|---|---|
-| 🌿 **Sage** | Wise, warm, therapeutic | Reflection, big decisions |
-| ⚡ **Spark** | Hype, energetic, celebratory | Motivation, confidence |
-| 🌊 **Zen** | Calm, non-judgmental, grounding | Stress, anxiety, venting |
-| ✦ **Cass** | Unbothered nepo baby, careless but always right | When you need brutal honesty with zero drama |
+| Sage | Warm, grounded, reflective | Big decisions, reflection |
+| Spark | Upbeat and encouraging | Motivation, confidence |
+| Zen | Calm and unhurried | Stress, anxiety, venting |
+| Cass | Unbothered and candid | Honest feedback without the drama |
 
----
+## Project structure
 
-## 🛠️ Tech Stack
+```
+App.js                 Navigation, session handling, app startup
+constants.js           Theme colors, moods, companions, quick actions
+screens/               Auth, onboarding, home, chat, journal, weekly recap, profile, paywall
+components/            Shared UI components (weekly recap card)
+lib/                   Supabase client, purchases, voice, recap, notifications
+supabase/functions/    Edge functions (send-email, delete-user, check-email-verified)
+lumaid-legal/          Separate project for the app's legal pages
+```
 
-| Layer | Technology |
-|---|---|
-| Framework | React Native + Expo SDK 54 |
-| Navigation | React Navigation v7 |
-| Auth | Supabase (email/password) |
-| Database | Supabase (memory + email subscribers) |
-| AI | Groq API — LLaMA 3.3 70B |
-| Backend | Node.js + Express (Railway) |
-| Storage | AsyncStorage (mood, stats, chat history) |
-| Voice | expo-speech (TTS) |
-| Notifications | expo-notifications |
-| Haptics | expo-haptics |
-| Fonts | Playfair Display, Lato, Space Mono |
-| Build | Expo EAS Build |
+## Getting started
 
----
+Requirements: Node.js, npm, and Xcode for iOS builds.
 
-## 🚀 Quick Start
-
-### 1. Clone & install
-
-```bash
-git clone https://github.com/senaalanur/real_time_chatbot.git
-cd real_time_chatbot
+```
 npm install
+npx expo start -c
 ```
 
-### 2. Set up environment variables
+The `-c` flag clears the cache, which matters after changing environment variables.
 
-Create a `.env` file in the root:
-EXPO_PUBLIC_SUPABASE_URL=your_supabase_url
-EXPO_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+## Configuration
 
-### 3. Backend
+Create a `.env` file in the project root:
 
-Backend is deployed on Railway at `https://lumaid-backend-production.up.railway.app`.
-
-To run locally:
-
-```bash
-cd ../lumaid-backend
-npm install
+```
+EXPO_PUBLIC_SUPABASE_URL=
+EXPO_PUBLIC_SUPABASE_ANON_KEY=
 ```
 
-Create a `.env` file in `lumaid-backend/`:
-GROQ_KEY=your_groq_api_key
-PORT=3001
+`EXPO_PUBLIC_SUPABASE_ANON_KEY` takes the Supabase **publishable** key (`sb_publishable_...`). Never put a secret key in the app: everything prefixed `EXPO_PUBLIC_` is bundled into the app binary.
 
-```bash
-node server.js
-```
+The backend base URL is defined in the source (search for `BACKEND_URL`). Backend setup is documented in the [backend repository](https://github.com/senaalanur/lumaid-backend).
 
-### 4. Run on your phone
+## Security notes
 
-```bash
-npx expo start
-```
+- Only the publishable Supabase key ships in the app.
+- Row Level Security should be enabled on every table the app reads.
+- API keys for Groq, Resend, and Supabase live only in the backend's environment variables.
+- `.env` files are git-ignored.
 
-Scan the QR code with your iPhone camera (Expo Go).
+## Roadmap
 
----
-
-## 🗄️ Supabase Setup
-
-```sql
-create table conversations (
-  id uuid default gen_random_uuid() primary key,
-  user_id uuid references auth.users(id) on delete cascade not null,
-  character_id uuid references characters(id) on delete cascade,
-  soul_id text,
-  role text not null,
-  content text not null,
-  created_at timestamp with time zone default now()
-);
-
-alter table conversations enable row level security;
-create policy "Users can manage their own conversations"
-  on conversations for all using (auth.uid() = user_id);
-
-create table user_memory (
-  id uuid default gen_random_uuid() primary key,
-  user_id uuid references auth.users(id) on delete cascade not null unique,
-  memory_summary text,
-  last_updated timestamp with time zone default now()
-);
-
-alter table user_memory enable row level security;
-create policy "Users can manage their own memory"
-  on user_memory for all using (auth.uid() = user_id);
-
-create table email_subscribers (
-  id uuid default gen_random_uuid() primary key,
-  user_id uuid references auth.users(id) on delete cascade,
-  email text not null,
-  subscribed boolean default true,
-  subscribed_at timestamp with time zone default now(),
-  updated_at timestamp with time zone default now()
-);
-
-alter table email_subscribers enable row level security;
-create policy "Users can view own subscription"
-  on email_subscribers for select using (auth.uid() = user_id);
-create policy "Users can insert own subscription"
-  on email_subscribers for insert with check (auth.uid() = user_id);
-create policy "Users can update own subscription"
-  on email_subscribers for update using (auth.uid() = user_id);
-```
-
----
-
-## 🔮 Roadmap (V2)
-
-- [ ] Custom persona builder — create your own AI companion with personality sliders
-- [ ] Weekly recap cards — shareable mood summary with AI insights
-- [ ] Voice input — speak instead of type (Whisper API)
-- [ ] Smart notifications — personalized messages based on mood patterns
-- [ ] Streak system enhancements — milestones, rewards
-- [ ] Export weekly recap as image for Instagram/TikTok
-- [ ] Freemium monetization — Free / Pro / Max tiers
-- [ ] App Store & Google Play launch
-
----
-
-## 👩‍💻 Built by
-
-**Sena Alanur** — [GitHub @senaalanur](https://github.com/senaalanur)
-
----
-
-## 📜 License
-
-MIT
+- Require a signed-in session on the chat and memory endpoints.
+- Verify Pro entitlement on the server for recap requests.
+- Weekly recap caching to reduce repeat model calls.
+- Pause and resume for voice playback on Android.
