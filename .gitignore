@@ -43,3 +43,10 @@ app-example
 /android
 .env
 *.backup
+
+# local backups
+*.backup
+*.backup2
+*.bak
+*.pre-*
+.DS_Store
