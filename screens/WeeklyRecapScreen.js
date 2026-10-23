@@ -1,3 +1,6 @@
+import { fetchWeeklyRecap } from '../lib/recap';
+import { SOULS as RECAP_SOULS } from '../constants';
+import { isProUser } from '../lib/purchases';
 import { Lato_400Regular, Lato_700Bold } from '@expo-google-fonts/lato';
 import { PlayfairDisplay_700Bold } from '@expo-google-fonts/playfair-display';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -23,7 +26,6 @@ import { COLORS, MOODS } from '../constants';
 
 const { width } = Dimensions.get('window');
 const CARD_W = width - 32;
-const CARD_H = CARD_W * (19.5 / 9);
 const BACKEND_URL = 'https://lumaid-backend-production-bee3.up.railway.app';
 
 const getMoodColor = (id) => MOODS.find(m => m.id === id)?.color ?? COLORS.muted;
@@ -52,10 +54,11 @@ const heroWord = (topMood) => {
 function WrappedCard({ moodData, insight, topMood, avgMood, last7Days }) {
   const topColor = topMood?.color ?? COLORS.accent;
   const { word, sub } = heroWord(topMood);
+  const heroColor = topMood?.id === 'okay' ? COLORS.accentDark : topColor;
   const avgLabel = avgMood >= 4.5 ? 'Great' : avgMood >= 3.5 ? 'Good' : avgMood >= 2.5 ? 'Okay' : avgMood >= 1.5 ? 'Low' : 'Rough';
 
   return (
-    <View style={[wc.root, { width: CARD_W, height: CARD_H }]}>
+    <View style={[wc.root, { width: CARD_W, minHeight: CARD_W * 1.4 }]}>
       <View style={[wc.orb1, { backgroundColor: topColor }]} />
       <View style={[wc.orb2, { backgroundColor: COLORS.accent }]} />
       <View style={wc.darkOverlay} />
@@ -70,7 +73,7 @@ function WrappedCard({ moodData, insight, topMood, avgMood, last7Days }) {
 
       <View style={wc.heroSection}>
         <Text style={wc.heroLabel}>YOUR WEEK IN ONE WORD</Text>
-        <Text style={[wc.heroWord, { color: topColor }]}>{word}</Text>
+        <Text style={[wc.heroWord, { color: heroColor }]}>{word}{topMood ? '  ' + topMood.emoji : ''}</Text>
         <Text style={wc.heroSub}>{sub}</Text>
       </View>
 
@@ -133,6 +136,10 @@ export default function WeeklyRecapScreen({ navigation }) {
   const [insight, setInsight] = useState('');
   const [loadingInsight, setLoadingInsight] = useState(false);
   const [capturing, setCapturing] = useState(false);
+  const [isPro, setIsPro] = useState(null);
+  const [aiRecap, setAiRecap] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [prevAvg, setPrevAvg] = useState(null);
   const fadeIn = useRef(new Animated.Value(0)).current;
   const cardRef = useRef(null);
 
@@ -143,7 +150,16 @@ export default function WeeklyRecapScreen({ navigation }) {
     Animated.timing(fadeIn, { toValue: 1, duration: 600, useNativeDriver: true }).start();
   }, []);
 
+  const loadAiRecap = async () => {
+    setAiLoading(true);
+    const r = await fetchWeeklyRecap();
+    setAiRecap(r);
+    setAiLoading(false);
+  };
+
   const loadWeekData = async () => {
+    const pro = await isProUser();
+    setIsPro(pro);
     const raw = await AsyncStorage.getItem('lumaid_mood_history');
     if (!raw) return;
     const all = JSON.parse(raw);
@@ -152,7 +168,11 @@ export default function WeeklyRecapScreen({ navigation }) {
       .filter(e => now - e.timestamp < 7 * 24 * 60 * 60 * 1000)
       .sort((a, b) => a.timestamp - b.timestamp);
     setMoodData(week);
-    if (week.length >= 3) generateInsight(week);
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    const prevWeek = all.filter(e => now - e.timestamp >= 7 * DAY_MS && now - e.timestamp < 14 * DAY_MS);
+    setPrevAvg(prevWeek.length ? prevWeek.reduce((sum, e) => sum + getMoodValue(e.moodId), 0) / prevWeek.length : null);
+    if (week.length >= 3) { if (pro) generateInsight(week); else setInsight('a week of honest moments — that takes real courage.'); }
+    if (pro && week.length >= 1) loadAiRecap();
   };
 
   const generateInsight = async (week) => {
@@ -316,42 +336,136 @@ export default function WeeklyRecapScreen({ navigation }) {
             </View>
           </>
         )}
+        {moodData.length > 0 && (
+          <>
+            {(() => {
+              const scored = moodData.map(e => ({ v: getMoodValue(e.moodId), day: new Date(e.timestamp).toLocaleDateString('en', { weekday: 'long' }) }));
+              const best = scored.reduce((a, b) => (b.v > a.v ? b : a), scored[0]);
+              const hard = scored.reduce((a, b) => (b.v < a.v ? b : a), scored[0]);
+              const diff = prevAvg == null ? null : avgMood - prevAvg;
+              const trend = diff == null ? 'Your first full week' : diff > 0.3 ? '↑ Brighter than last week' : diff < -0.3 ? '↓ Heavier than last week' : '→ Steady compared to last week';
+              return (
+                <View style={rx.card}>
+                  <Text style={rx.label}>YOUR WEEK AT A GLANCE</Text>
+                  <Text style={rx.trend}>{trend}</Text>
+                  <View style={rx.factRow}><Text style={rx.factKey}>Best day</Text><Text style={rx.factVal}>{best.day}</Text></View>
+                  {hard.v !== best.v && (
+                    <View style={rx.factRow}><Text style={rx.factKey}>Hardest day</Text><Text style={rx.factVal}>{hard.day}</Text></View>
+                  )}
+                  <View style={rx.factRow}><Text style={rx.factKey}>Check-ins</Text><Text style={rx.factVal}>{moodData.length} of 7 days</Text></View>
+                </View>
+              );
+            })()}
+
+            {isPro === true && (
+              <>
+                {aiLoading && (
+                  <View style={[rx.card, { alignItems: 'center', gap: 10 }]}>
+                    <ActivityIndicator color={COLORS.accent} />
+                    <Text style={rx.muted}>Writing your reflection...</Text>
+                  </View>
+                )}
+                {!aiLoading && aiRecap && aiRecap.error && (
+                  <View style={rx.card}>
+                    <Text style={rx.body}>{RX_ERRORS[aiRecap.error] || RX_ERRORS.failed}</Text>
+                    {aiRecap.error !== 'signin' && (
+                      <TouchableOpacity onPress={loadAiRecap}><Text style={rx.link}>Try again</Text></TouchableOpacity>
+                    )}
+                  </View>
+                )}
+                {!aiLoading && aiRecap && aiRecap.recap && (() => {
+                  const rc = aiRecap.recap;
+                  const soul = RECAP_SOULS[aiRecap.character];
+                  return (
+                    <>
+                      <View style={rx.card}>
+                        <Text style={rx.label}>YOUR REFLECTION</Text>
+                        <Text style={rx.headline}>{rc.headline}</Text>
+                        <Text style={rx.body}>{rc.summary}</Text>
+                        {rc.themes && rc.themes.length > 0 && (
+                          <View style={rx.chips}>
+                            {rc.themes.map((t, i) => (<View key={i} style={rx.chip}><Text style={rx.chipText}>{t}</Text></View>))}
+                          </View>
+                        )}
+                      </View>
+                      {!!rc.characterNote && !!soul && (
+                        <View style={[rx.card, { borderLeftWidth: 4, borderLeftColor: soul.color }]}>
+                          <Text style={[rx.label, { color: soul.color }]}>{soul.emoji + '  A NOTE FROM ' + soul.name.toUpperCase()}</Text>
+                          <Text style={rx.note}>{rc.characterNote}</Text>
+                        </View>
+                      )}
+                      {!!rc.highlight && (
+                        <View style={rx.card}>
+                          <Text style={rx.label}>✦ HIGHLIGHT</Text>
+                          <Text style={rx.body}>{rc.highlight}</Text>
+                        </View>
+                      )}
+                      {!!rc.suggestion && (
+                        <View style={rx.card}>
+                          <Text style={rx.label}>FOR NEXT WEEK</Text>
+                          <Text style={rx.body}>{rc.suggestion}</Text>
+                        </View>
+                      )}
+                    </>
+                  );
+                })()}
+              </>
+            )}
+
+            {isPro === false && (
+              <View style={rx.card}>
+                <Text style={rx.label}>🔒 YOUR REFLECTION</Text>
+                <View style={rx.ghost} />
+                <View style={[rx.ghost, { width: '82%' }]} />
+                <View style={[rx.ghost, { width: '58%' }]} />
+                <Text style={[rx.body, { marginTop: 8 }]}>
+                  Unlock a written reflection on your week, a note from your companion in their own voice, and one gentle idea for next week.
+                </Text>
+                <TouchableOpacity style={rx.cta} onPress={() => navigation.navigate('Paywall')} activeOpacity={0.85}>
+                  <Text style={rx.ctaText}>Unlock with Pro</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </>
+        )}
+
         <View style={{ height: 60 }} />
       </Animated.ScrollView>
     </View>
   );
 }
 
+// recap-light: share card restyled to the app's cream and gold theme
 const wc = StyleSheet.create({
-  root: { backgroundColor: '#08060F', borderRadius: 28, overflow: 'hidden', padding: 24, justifyContent: 'space-between' },
-  orb1: { position: 'absolute', width: CARD_W * 0.95, height: CARD_W * 0.95, borderRadius: CARD_W * 0.475, top: -CARD_W * 0.45, left: -CARD_W * 0.2, opacity: 0.2 },
-  orb2: { position: 'absolute', width: CARD_W * 0.65, height: CARD_W * 0.65, borderRadius: CARD_W * 0.325, bottom: CARD_W * 0.05, right: -CARD_W * 0.2, opacity: 0.1 },
-  darkOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#08060F', opacity: 0.55 },
+  root: { backgroundColor: '#F7F4EC', borderRadius: 28, overflow: 'hidden', padding: 24, justifyContent: 'space-between', borderWidth: 1, borderColor: 'rgba(200,170,80,0.35)' },
+  orb1: { position: 'absolute', width: CARD_W * 0.95, height: CARD_W * 0.95, borderRadius: CARD_W * 0.475, top: -CARD_W * 0.45, left: -CARD_W * 0.2, opacity: 0.35 },
+  orb2: { position: 'absolute', width: CARD_W * 0.65, height: CARD_W * 0.65, borderRadius: CARD_W * 0.325, bottom: CARD_W * 0.05, right: -CARD_W * 0.2, opacity: 0.22 },
+  darkOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'transparent', opacity: 0 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, zIndex: 1 },
-  appName: { fontFamily: 'PlayfairDisplay_700Bold', fontSize: 18, color: '#FFFFFF', letterSpacing: 5 },
-  weekStr: { fontFamily: 'Lato_400Regular', fontSize: 9, color: 'rgba(255,255,255,0.35)', marginTop: 3, letterSpacing: 0.3 },
-  weekTag: { fontFamily: 'Lato_700Bold', fontSize: 8, color: 'rgba(255,255,255,0.25)', letterSpacing: 0.2, marginTop: 4 },
+  appName: { fontFamily: 'PlayfairDisplay_700Bold', fontSize: 18, color: '#2C1F00', letterSpacing: 5 },
+  weekStr: { fontFamily: 'Lato_400Regular', fontSize: 9, color: 'rgba(44,31,0,0.55)', marginTop: 3, letterSpacing: 0.3 },
+  weekTag: { fontFamily: 'Lato_700Bold', fontSize: 8, color: 'rgba(44,31,0,0.45)', letterSpacing: 0.2, marginTop: 4 },
   heroSection: { marginBottom: 16, zIndex: 1 },
-  heroLabel: { fontFamily: 'Lato_700Bold', fontSize: 9, color: 'rgba(255,255,255,0.35)', letterSpacing: 0.2, marginBottom: 6 },
-  heroWord: { fontFamily: 'PlayfairDisplay_700Bold', fontSize: 58, lineHeight: 62 },
-  heroSub: { fontFamily: 'Lato_400Regular', fontSize: 12, color: 'rgba(255,255,255,0.45)', marginTop: 4 },
-  insightBox: { borderWidth: 1, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.03)', padding: 14, marginBottom: 18, zIndex: 1 },
-  insightText: { fontFamily: 'PlayfairDisplay_700Bold', fontSize: 13, color: 'rgba(255,255,255,0.88)', lineHeight: 21, fontStyle: 'italic' },
+  heroLabel: { fontFamily: 'Lato_700Bold', fontSize: 9, color: 'rgba(44,31,0,0.55)', letterSpacing: 0.2, marginBottom: 6 },
+  heroWord: { fontFamily: 'PlayfairDisplay_700Bold', fontSize: 46, lineHeight: 54 },
+  heroSub: { fontFamily: 'Lato_400Regular', fontSize: 12, color: 'rgba(44,31,0,0.65)', marginTop: 4 },
+  insightBox: { borderWidth: 1, borderRadius: 16, backgroundColor: 'rgba(200,170,80,0.10)', padding: 14, marginBottom: 18, zIndex: 1 },
+  insightText: { fontFamily: 'PlayfairDisplay_700Bold', fontSize: 13, color: '#2C1F00', lineHeight: 21, fontStyle: 'italic' },
   chartSection: { marginBottom: 16, zIndex: 1 },
-  sectionLabel: { fontFamily: 'Lato_700Bold', fontSize: 8, color: 'rgba(255,255,255,0.3)', letterSpacing: 0.2, marginBottom: 8 },
+  sectionLabel: { fontFamily: 'Lato_700Bold', fontSize: 8, color: 'rgba(44,31,0,0.5)', letterSpacing: 0.2, marginBottom: 8 },
   bars: { flexDirection: 'row', alignItems: 'flex-end', gap: 5, height: 60 },
   barCol: { flex: 1, alignItems: 'center', gap: 4 },
-  barTrack: { flex: 1, width: '100%', justifyContent: 'flex-end', backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 5, overflow: 'hidden', maxHeight: 50 },
+  barTrack: { flex: 1, width: '100%', justifyContent: 'flex-end', backgroundColor: 'rgba(200,170,80,0.18)', borderRadius: 5, overflow: 'hidden', maxHeight: 50 },
   barFill: { width: '100%', borderRadius: 5 },
-  barDay: { fontFamily: 'Lato_700Bold', fontSize: 8, color: 'rgba(255,255,255,0.3)' },
-  statsBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 14, padding: 12, marginBottom: 16, zIndex: 1 },
+  barDay: { fontFamily: 'Lato_700Bold', fontSize: 8, color: 'rgba(44,31,0,0.5)' },
+  statsBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(200,170,80,0.12)', borderRadius: 14, padding: 12, marginBottom: 16, zIndex: 1 },
   statItem: { flex: 1, alignItems: 'center', gap: 4 },
-  statDivider: { width: 1, height: 28, backgroundColor: 'rgba(255,255,255,0.1)' },
-  statNum: { fontFamily: 'PlayfairDisplay_700Bold', fontSize: 20, color: '#FFFFFF' },
-  statLabel: { fontFamily: 'Lato_700Bold', fontSize: 7, color: 'rgba(255,255,255,0.3)', letterSpacing: 0.15 },
+  statDivider: { width: 1, height: 28, backgroundColor: 'rgba(200,170,80,0.35)' },
+  statNum: { fontFamily: 'PlayfairDisplay_700Bold', fontSize: 20, color: '#2C1F00' },
+  statLabel: { fontFamily: 'Lato_700Bold', fontSize: 7, color: 'rgba(44,31,0,0.5)', letterSpacing: 0.15 },
   dotsRow: { flexDirection: 'row', justifyContent: 'center', gap: 7, marginBottom: 16, zIndex: 1 },
   dot: { width: 9, height: 9, borderRadius: 5 },
-  footer: { fontFamily: 'Lato_400Regular', fontSize: 9, color: 'rgba(255,255,255,0.2)', textAlign: 'center', letterSpacing: 0.3, zIndex: 1 },
+  footer: { fontFamily: 'Lato_400Regular', fontSize: 9, color: 'rgba(44,31,0,0.4)', textAlign: 'center', letterSpacing: 0.3, zIndex: 1 },
 });
 
 const styles = StyleSheet.create({
@@ -385,4 +499,31 @@ const styles = StyleSheet.create({
   emptyOrbText: { fontSize: 36 },
   emptyTitle: { fontFamily: 'PlayfairDisplay_700Bold', fontSize: 24, color: COLORS.text, marginBottom: 10 },
   emptyText: { fontFamily: 'Lato_400Regular', fontSize: 14, color: COLORS.textSoft, textAlign: 'center', lineHeight: 22 },
+});
+
+const RX_ERRORS = {
+  signin: 'Sign in to see your reflection.',
+  limit: "You've reached today's recap limit. Try again tomorrow.",
+  failed: "Couldn't write your reflection right now. Please try again.",
+  network: 'No connection. Check your internet and try again.',
+};
+
+const rx = StyleSheet.create({
+  card: { backgroundColor: COLORS.surface, borderWidth: 1, borderColor: COLORS.border, borderRadius: 22, padding: 18, marginBottom: 12 },
+  label: { fontFamily: 'Lato_700Bold', fontSize: 10, color: COLORS.muted, letterSpacing: 1.5, marginBottom: 10 },
+  trend: { fontFamily: 'PlayfairDisplay_700Bold', fontSize: 20, color: COLORS.text, marginBottom: 12 },
+  factRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 7, borderTopWidth: 1, borderTopColor: COLORS.border },
+  factKey: { fontFamily: 'Lato_400Regular', fontSize: 14, color: COLORS.textSoft },
+  factVal: { fontFamily: 'Lato_700Bold', fontSize: 14, color: COLORS.text },
+  headline: { fontFamily: 'PlayfairDisplay_700Bold', fontSize: 22, color: COLORS.text, marginBottom: 8 },
+  body: { fontFamily: 'Lato_400Regular', fontSize: 14, color: COLORS.textSoft, lineHeight: 22 },
+  note: { fontFamily: 'PlayfairDisplay_700Bold', fontSize: 15, color: COLORS.text, lineHeight: 24, fontStyle: 'italic' },
+  muted: { fontFamily: 'Lato_400Regular', fontSize: 13, color: COLORS.muted },
+  link: { fontFamily: 'Lato_700Bold', fontSize: 14, color: COLORS.accentDark, marginTop: 10 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14 },
+  chip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, backgroundColor: COLORS.accentSoft, borderWidth: 1, borderColor: COLORS.border },
+  chipText: { fontFamily: 'Lato_700Bold', fontSize: 12, color: COLORS.textSoft },
+  ghost: { height: 10, borderRadius: 5, backgroundColor: COLORS.surfaceUp, marginBottom: 8, width: '100%' },
+  cta: { backgroundColor: COLORS.accent, borderRadius: 50, paddingVertical: 14, alignItems: 'center', marginTop: 14 },
+  ctaText: { fontFamily: 'Lato_700Bold', fontSize: 15, color: '#2C1F00' },
 });

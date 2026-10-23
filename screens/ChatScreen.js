@@ -2,6 +2,8 @@ import { Lato_400Regular, Lato_700Bold } from '@expo-google-fonts/lato';
 import { PlayfairDisplay_700Bold } from '@expo-google-fonts/playfair-display';
 import { SpaceMono_400Regular } from '@expo-google-fonts/space-mono';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { isProUser } from '../lib/purchases';
+import { speak, stopSpeaking, getVoiceAutoplay, pauseSpeaking, resumeSpeaking, subscribeVoiceState } from '../lib/voice';
 import { useFonts } from 'expo-font';
 import * as Haptics from 'expo-haptics';
 import React, { useEffect, useRef, useState } from 'react';
@@ -24,6 +26,7 @@ import { COLORS, QUICK_ACTIONS, SOULS, callClaude } from '../constants';
 const { width } = Dimensions.get('window');
 const STATS_KEY = 'lumaid_stats';
 const BACKEND_URL = 'https://lumaid-backend-production-bee3.up.railway.app';
+const DAILY_FREE_MESSAGE_LIMIT = 15;
 
 // Unique AsyncStorage key per soul or character
 const getChatKey = (soulId, characterId) =>
@@ -77,6 +80,14 @@ export default function ChatScreen({ route, navigation }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [speakingId, setSpeakingId] = useState(null);
+  const [voicePaused, setVoicePaused] = useState(false);
+  useEffect(() => subscribeVoiceState(st => setVoicePaused(st.paused)), []);
+
+  // Stop any speech when leaving the chat
+  useEffect(() => {
+    return () => stopSpeaking();
+  }, []);
   const [sessionLatencies, setSessionLatencies] = useState([]);
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [memory, setMemory] = useState('');
@@ -305,10 +316,70 @@ export default function ChatScreen({ route, navigation }) {
     setMessages([firstMsg]);
   };
 
+  const getLocalDateString = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const checkDailyLimit = async () => {
+    try {
+      const pro = await isProUser();
+      if (pro) return true;
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return true;
+
+      const today = getLocalDateString();
+      const { data, error } = await supabase
+        .from('daily_usage')
+        .select('message_count')
+        .eq('user_id', user.id)
+        .eq('usage_date', today)
+        .maybeSingle();
+
+      if (error) {
+        console.warn('[LUMAID] checkDailyLimit error:', error.message);
+        return true;
+      }
+
+      const count = data?.message_count ?? 0;
+      return count < DAILY_FREE_MESSAGE_LIMIT;
+    } catch (err) {
+      console.warn('[LUMAID] checkDailyLimit failed:', err.message);
+      return true;
+    }
+  };
+
+  const incrementDailyUsage = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const today = getLocalDateString();
+      await supabase.rpc('increment_daily_usage', {
+        p_user_id: user.id,
+        p_date: today,
+      });
+    } catch (err) {
+      console.warn('[LUMAID] incrementDailyUsage failed:', err.message);
+    }
+  };
+
   const sendMessage = async (textOverride = null, msgsOverride = null) => {
     const text = (textOverride ?? input).trim();
     if (!text || isLoading) return;
+    const withinLimit = await checkDailyLimit();
+    if (!withinLimit) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      navigation.navigate('Paywall');
+      return;
+    }
     if (!textOverride) setInput('');
+    stopSpeaking();
+    setSpeakingId(null);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
 
     const currentMsgs = msgsOverride ?? messages;
@@ -335,10 +406,25 @@ export default function ChatScreen({ route, navigation }) {
       setMessages(final);
       setSessionLatencies(prev => [...prev, latency]);
 
+      // Voice replies: Pro users who turned them on hear the reply automatically
+      (async () => {
+        try {
+          if ((await isProUser()) && (await getVoiceAutoplay())) {
+            setSpeakingId(botMsg.id);
+            speak(reply, soulId, () =>
+              setSpeakingId(prev => (prev === botMsg.id ? null : prev))
+            );
+          }
+        } catch (e) {
+          console.warn('[LUMAID] autoplay failed:', e.message);
+        }
+      })();
+
       await persistMessages(final);
       saveStats(final);
       saveMessageToSupabase('user', text);
       saveMessageToSupabase('assistant', reply);
+      incrementDailyUsage();
 
       const userMsgCount = final.filter(m => m.role === 'user').length;
       if (userMsgCount % 3 === 0) updateMemory(final);
@@ -382,6 +468,25 @@ export default function ChatScreen({ route, navigation }) {
     );
   }
 
+  // Voice replies are a Pro feature: free users are sent to the paywall.
+  const handleSpeak = async (item) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (speakingId === item.id) {
+      stopSpeaking();
+      setSpeakingId(null);
+      return;
+    }
+    const pro = await isProUser();
+    if (!pro) {
+      navigation.navigate('Paywall');
+      return;
+    }
+    setSpeakingId(item.id);
+    speak(item.text, soulId, () =>
+      setSpeakingId(prev => (prev === item.id ? null : prev))
+    );
+  };
+
   const renderMessage = ({ item }) => {
     const isUser = item.role === 'user';
     return (
@@ -416,6 +521,33 @@ export default function ChatScreen({ route, navigation }) {
             }}>
               <Text style={styles.retryText}>Tap to retry →</Text>
             </TouchableOpacity>
+          )}
+          {!isUser && !item.isError && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 18 }}>
+              <TouchableOpacity
+                style={styles.speakBtn}
+                onPress={() => handleSpeak(item)}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={[styles.speakText, { color: activeColor }]}>
+                  {speakingId === item.id ? '■ Stop' : '🔊 Listen'}
+                </Text>
+              </TouchableOpacity>
+              {speakingId === item.id && Platform.OS === 'ios' && (
+                <TouchableOpacity
+                  style={styles.speakBtn}
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    voicePaused ? resumeSpeaking() : pauseSpeaking();
+                  }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={[styles.speakText, { color: activeColor }]}>
+                    {voicePaused ? '▶ Resume' : '❚❚ Pause'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
           )}
         </View>
         {isUser && (
@@ -633,6 +765,8 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border, borderBottomLeftRadius: 6,
   },
   bubbleError: { borderColor: COLORS.danger + '40', backgroundColor: COLORS.danger + '08' },
+  speakBtn: { marginTop: 8, alignSelf: 'flex-start' },
+  speakText: { fontFamily: 'Lato_700Bold', fontSize: 12 },
   bubbleText: { fontFamily: 'Lato_400Regular', fontSize: 15, lineHeight: 24 },
   bubbleTextUser: { color: COLORS.white },
   bubbleTextBot: { color: COLORS.text },

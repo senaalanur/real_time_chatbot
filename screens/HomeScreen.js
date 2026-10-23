@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { CopilotProvider, CopilotStep, useCopilot, walkthroughable } from 'react-native-copilot';
 import { COLORS, MOODS, QUICK_ACTIONS, SOULS } from '../constants';
+import WeeklyRecapCard from '../components/WeeklyRecapCard';
 
 const { width } = Dimensions.get('window');
 
@@ -438,6 +439,8 @@ function HomeScreenInner({ navigation, route }) {
             )}
           </WalkthroughableView>
         </CopilotStep>
+
+        <WeeklyRecapCard refreshKey={todayMood} />
 
         {/* Wellness Tools — Tour Step 3 */}
         <CopilotStep text="Quick-start any wellness activity — daily check-in, vent session, evening reflection, anxiety relief, focus mode, or gratitude practice." order={3} name="wellness-tools">

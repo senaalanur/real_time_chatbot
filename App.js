@@ -7,6 +7,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { supabase } from './lib/supabase';
 import { registerForPushNotifications, scheduleDailyReminder } from './lib/notifications';
+import { initPurchases, loginPurchases, logoutPurchases } from './lib/purchases';
+import * as Notifications from 'expo-notifications';
 import { navigationRef, navigateAndReset } from './lib/navigationRef';
 
 import AuthScreen from './screens/AuthScreen';
@@ -16,6 +18,8 @@ import JournalScreen from './screens/JournalScreen';
 import OnboardingScreen from './screens/OnboardingScreen';
 import ProfileScreen from './screens/ProfileScreen';
 import ResetPasswordScreen from './screens/ResetPasswordScreen';
+import PaywallScreen from './screens/PaywallScreen';
+import WeeklyRecapScreen from './screens/WeeklyRecapScreen';
 import SplashScreen from './screens/SplashScreen';
 
 const Stack = createNativeStackNavigator();
@@ -115,6 +119,11 @@ export default function App() {
   const [session,     setSession]     = useState(undefined); // undefined = loading
   const [isOnboarded, setIsOnboarded] = useState(undefined);
   const isNavigationReady             = useRef(false);
+
+  // ── RevenueCat: configure once on mount ────────────────────────────────────
+  useEffect(() => {
+    initPurchases();
+  }, []);
 
   // ── Deep link handler ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -282,6 +291,7 @@ export default function App() {
       }
 
       if (event === 'SIGNED_OUT') {
+        logoutPurchases();
         setSession(null);
         setIsOnboarded(false);
         return;
@@ -307,13 +317,16 @@ export default function App() {
         const val = await AsyncStorage.getItem('lumaid_user');
         setIsOnboarded(!!val);
         setSession(newSession);
+        loginPurchases(newSession.user.id);
       }
     });
 
-    registerForPushNotifications().then(status => {
-      if (status === 'granted') scheduleDailyReminder(20, 0);
+    registerForPushNotifications().then(async (status) => {
+      if (status === 'granted') {
+        const pref = await AsyncStorage.getItem('lumaid_notifications_pref');
+        if (pref !== 'false') scheduleDailyReminder(20, 0);
+      }
     });
-
     return () => subscription.unsubscribe();
   }, []);
 
@@ -355,6 +368,8 @@ export default function App() {
           <Stack.Screen name="Journal"       component={JournalScreen} />
           <Stack.Screen name="Profile"       component={ProfileScreen} />
           <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
+            <Stack.Screen name="Paywall" component={PaywallScreen} options={{ presentation: 'modal' }} />
+          <Stack.Screen name="WeeklyRecap" component={WeeklyRecapScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>

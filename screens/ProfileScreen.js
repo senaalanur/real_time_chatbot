@@ -11,9 +11,13 @@ import {
   TouchableOpacity, View,
 } from 'react-native';
 import { supabase } from '../lib/supabase';
+import { cancelAllNotifications, refreshNotifications } from '../lib/notifications';
 import { COLORS, SOULS } from '../constants';
+import { isProUser, showManageSubscriptions } from '../lib/purchases';
+import { getVoiceAutoplay, setVoiceAutoplay } from '../lib/voice';
 
 const { width } = Dimensions.get('window');
+const NOTIF_PREF_KEY = 'lumaid_notifications_pref';
 
 function SettingsToggleRow({ icon, iconBg, label, sublabel, value, onValueChange, disabled, isFirst }) {
   return (
@@ -119,6 +123,24 @@ export default function ProfileScreen({ navigation }) {
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [notifLoading,         setNotifLoading]         = useState(false);
   const [deleteLoading,        setDeleteLoading]        = useState(false);
+  const [isPro, setIsPro] = useState(false);
+
+  const [voiceReplies, setVoiceReplies] = useState(false);
+
+  useEffect(() => {
+    isProUser().then(setIsPro);
+    getVoiceAutoplay().then(setVoiceReplies);
+  }, []);
+
+  // Voice replies are a Pro feature: free users are sent to the paywall.
+  const handleVoiceToggle = async (value) => {
+    if (!(await isProUser())) {
+      navigation.navigate('Paywall');
+      return;
+    }
+    setVoiceReplies(value);
+    await setVoiceAutoplay(value);
+  };
 
   const [fontsLoaded] = useFonts({ PlayfairDisplay_700Bold, Lato_400Regular, Lato_700Bold });
 
@@ -151,19 +173,24 @@ export default function ProfileScreen({ navigation }) {
       if (data) setNewsletterSubscribed(data.subscribed);
     }
 
+    const prefRaw = await AsyncStorage.getItem(NOTIF_PREF_KEY);
+    const prefEnabled = prefRaw !== 'false';
+
     const { status } = await Notifications.getPermissionsAsync();
-    setNotificationsEnabled(status === 'granted');
+    setNotificationsEnabled(status === 'granted' && prefEnabled);
 
     const unsubscribe = navigation.addListener('focus', async () => {
       const { status: s } = await Notifications.getPermissionsAsync();
-      setNotificationsEnabled(s === 'granted');
+      const p = await AsyncStorage.getItem(NOTIF_PREF_KEY);
+      setNotificationsEnabled(s === 'granted' && p !== 'false');
     });
 
     // Also check on app state change (when returning from Settings)
     const subscription = AppState.addEventListener('change', async (state) => {
       if (state === 'active') {
         const { status: s } = await Notifications.getPermissionsAsync();
-        setNotificationsEnabled(s === 'granted');
+        const p = await AsyncStorage.getItem(NOTIF_PREF_KEY);
+        setNotificationsEnabled(s === 'granted' && p !== 'false');
       }
     });
 
@@ -177,6 +204,8 @@ export default function ProfileScreen({ navigation }) {
       if (value) {
         const { status } = await Notifications.requestPermissionsAsync();
         if (status === 'granted') {
+          await AsyncStorage.setItem(NOTIF_PREF_KEY, 'true');
+          await refreshNotifications();
           setNotificationsEnabled(true);
         } else {
           Alert.alert(
@@ -189,14 +218,9 @@ export default function ProfileScreen({ navigation }) {
           );
         }
       } else {
-        Alert.alert(
-          'Turn Off Notifications',
-          'To disable notifications, go to your device settings and turn off notifications for Lumaid.',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Open Settings', onPress: () => Linking.openSettings() },
-          ]
-        );
+        await AsyncStorage.setItem(NOTIF_PREF_KEY, 'false');
+        await cancelAllNotifications();
+        setNotificationsEnabled(false);
       }
     } catch (err) {
       console.log('Notif toggle error:', err.message);
@@ -361,6 +385,36 @@ export default function ProfileScreen({ navigation }) {
             <Text style={styles.settingsLabel}>Mood Journal</Text>
             <Text style={[styles.settingsArrow, { color: COLORS.cyan }]}>→</Text>
           </TouchableOpacity>
+
+          {isPro ? (
+            <TouchableOpacity
+              style={styles.settingsRow}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                showManageSubscriptions();
+              }}
+            >
+              <View style={[styles.settingsIcon, { backgroundColor: COLORS.accentDark + '15' }]}>
+                <Text style={styles.settingsEmoji}>✦</Text>
+              </View>
+              <Text style={styles.settingsLabel}>Lumaid Pro</Text>
+              <View style={styles.proBadge}>
+                <Text style={styles.proBadgeText}>ACTIVE</Text>
+              </View>
+              <Text style={[styles.settingsArrow, { color: COLORS.accentDark, marginLeft: 6 }]}>→</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.settingsRow}
+              onPress={() => navigation.navigate('Paywall')}
+            >
+              <View style={[styles.settingsIcon, { backgroundColor: COLORS.accentDark + '15' }]}>
+                <Text style={styles.settingsEmoji}>✦</Text>
+              </View>
+              <Text style={styles.settingsLabel}>Upgrade to Pro</Text>
+              <Text style={[styles.settingsArrow, { color: COLORS.accentDark }]}>→</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <View style={styles.appleCard}>
@@ -374,6 +428,15 @@ export default function ProfileScreen({ navigation }) {
             onValueChange={handleNotifToggle}
             disabled={notifLoading}
             isFirst={true}
+          />
+          <SettingsToggleRow
+            icon="🔊"
+            iconBg="rgba(88,86,214,0.15)"
+            label="Voice replies"
+            sublabel={isPro ? 'Read replies out loud automatically' : 'Pro · hear replies out loud'}
+            value={isPro && voiceReplies}
+            onValueChange={handleVoiceToggle}
+            isFirst={false}
           />
           <SettingsToggleRow
             icon="✉️"
@@ -449,6 +512,8 @@ const styles = StyleSheet.create({
   settingsEmoji:{ fontSize: 18 },
   settingsLabel:{ flex: 1, fontFamily: 'Lato_700Bold', fontSize: 14, color: COLORS.text },
   settingsArrow:{ fontSize: 16, fontFamily: 'Lato_700Bold' },
+  proBadge: { backgroundColor: COLORS.accentDark, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  proBadgeText: { fontFamily: 'Lato_700Bold', fontSize: 10, color: COLORS.white, letterSpacing: 0.5 },
 
   signOutBtn:     { backgroundColor: COLORS.white, borderWidth: 1.5, borderColor: COLORS.border, borderRadius: 16, paddingVertical: 15, alignItems: 'center', marginBottom: 10 },
   signOutText:    { fontFamily: 'Lato_700Bold', fontSize: 15, color: COLORS.text },

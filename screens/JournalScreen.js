@@ -114,6 +114,12 @@ export default function JournalScreen({ navigation }) {
           </View>
         </View>
 
+        {/* Weekly recap entry */}
+        <TouchableOpacity style={styles.glassCard} onPress={() => navigation.navigate('WeeklyRecap')} activeOpacity={0.8}>
+          <Text style={styles.cardLabel}>✦ WEEKLY RECAP</Text>
+          <Text style={styles.insightText}>See your week in one shareable card →</Text>
+        </TouchableOpacity>
+
         {/* Recent entries */}
         <View style={styles.glassCard}>
           <Text style={styles.cardLabel}>RECENT CHECK-INS</Text>
