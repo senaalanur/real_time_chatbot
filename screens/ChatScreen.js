@@ -2,6 +2,7 @@ import { Lato_400Regular, Lato_700Bold } from '@expo-google-fonts/lato';
 import { PlayfairDisplay_700Bold } from '@expo-google-fonts/playfair-display';
 import { SpaceMono_400Regular } from '@expo-google-fonts/space-mono';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { prewarmVoice } from '../lib/voice';
 import { isProUser } from '../lib/purchases';
 import { speak, stopSpeaking, getVoiceAutoplay, pauseSpeaking, resumeSpeaking, subscribeVoiceState } from '../lib/voice';
 import { useFonts } from 'expo-font';
@@ -13,6 +14,7 @@ import {
   Dimensions,
   FlatList,
   KeyboardAvoidingView,
+  AppState,
   Platform,
   StyleSheet,
   Text,
@@ -88,6 +90,20 @@ export default function ChatScreen({ route, navigation }) {
   useEffect(() => {
     return () => stopSpeaking();
   }, []);
+
+  // Stop speech when the app goes to the background or becomes inactive
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') {
+        stopSpeaking();
+        setSpeakingId(null);
+      }
+    });
+    return () => sub.remove();
+  }, []);
+
+  // Warm the voice for this persona so the first spoken reply starts faster
+  useEffect(() => { prewarmVoice(soulId); }, [soulId]);
   const [sessionLatencies, setSessionLatencies] = useState([]);
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [memory, setMemory] = useState('');
