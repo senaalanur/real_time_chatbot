@@ -7,7 +7,7 @@ import * as Notifications from 'expo-notifications';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert, Animated, AppState, Dimensions, Linking, Platform,
-  ScrollView, StyleSheet, Switch, Text,
+  Modal, ScrollView, StyleSheet, Switch, Text,
   TouchableOpacity, View,
 } from 'react-native';
 import { supabase } from '../lib/supabase';
@@ -18,6 +18,13 @@ import { getVoiceAutoplay, setVoiceAutoplay } from '../lib/voice';
 
 const { width } = Dimensions.get('window');
 const NOTIF_PREF_KEY = 'lumaid_notifications_pref';
+const REMINDER_TIME_KEY = 'lumaid_reminder_time';
+
+function formatTime(h, m) {
+  const period = h >= 12 ? 'PM' : 'AM';
+  const hr = h % 12 === 0 ? 12 : h % 12;
+  return `${hr}:${String(m).padStart(2, '0')} ${period}`;
+}
 
 function SettingsToggleRow({ icon, iconBg, label, sublabel, value, onValueChange, disabled, isFirst }) {
   return (
@@ -38,6 +45,22 @@ function SettingsToggleRow({ icon, iconBg, label, sublabel, value, onValueChange
         ios_backgroundColor="#E5E5EA"
         style={{ transform: [{ scaleX: 0.85 }, { scaleY: 0.85 }] }}
       />
+    </View>
+  );
+}
+
+function TimeStepper({ value, onUp, onDown }) {
+  return (
+    <View style={{ alignItems: 'center' }}>
+      <TouchableOpacity onPress={onUp} hitSlop={{ top: 10, bottom: 10, left: 14, right: 14 }}>
+        <Text style={{ fontSize: 22, color: COLORS.accentDark, paddingVertical: 6 }}>▲</Text>
+      </TouchableOpacity>
+      <Text style={{ fontFamily: 'PlayfairDisplay_700Bold', fontSize: 34, color: COLORS.text, minWidth: 64, textAlign: 'center' }}>
+        {value}
+      </Text>
+      <TouchableOpacity onPress={onDown} hitSlop={{ top: 10, bottom: 10, left: 14, right: 14 }}>
+        <Text style={{ fontSize: 22, color: COLORS.accentDark, paddingVertical: 6 }}>▼</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -126,10 +149,16 @@ export default function ProfileScreen({ navigation }) {
   const [isPro, setIsPro] = useState(false);
 
   const [voiceReplies, setVoiceReplies] = useState(false);
+  const [reminderTime, setReminderTime] = useState({ h: 20, m: 0 });
+  const [draftTime, setDraftTime] = useState({ h: 20, m: 0 });
+  const [timeModal, setTimeModal] = useState(false);
 
   useEffect(() => {
     isProUser().then(setIsPro);
     getVoiceAutoplay().then(setVoiceReplies);
+    AsyncStorage.getItem(REMINDER_TIME_KEY).then(raw => {
+      try { if (raw) setReminderTime(JSON.parse(raw)); } catch (e) {}
+    });
   }, []);
 
   // Voice replies are a Pro feature: free users are sent to the paywall.
@@ -195,6 +224,30 @@ export default function ProfileScreen({ navigation }) {
     });
 
     return () => { unsubscribe(); subscription.remove(); };
+  };
+
+  // Custom reminder time is a Pro feature: free users are sent to the paywall.
+  const openTimePicker = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (!(await isProUser())) {
+      navigation.navigate('Paywall');
+      return;
+    }
+    setDraftTime(reminderTime);
+    setTimeModal(true);
+  };
+  const stepHour = (d) => setDraftTime(t => ({ ...t, h: (t.h + d + 24) % 24 }));
+  const stepMinute = (d) => setDraftTime(t => ({ ...t, m: (t.m + d + 60) % 60 }));
+  const saveReminderTime = async () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setReminderTime(draftTime);
+    setTimeModal(false);
+    try {
+      await AsyncStorage.setItem(REMINDER_TIME_KEY, JSON.stringify(draftTime));
+      if (notificationsEnabled) await refreshNotifications();
+    } catch (err) {
+      console.log('Reminder time save error:', err.message);
+    }
   };
 
   const handleNotifToggle = async (value) => {
@@ -429,6 +482,18 @@ export default function ProfileScreen({ navigation }) {
             disabled={notifLoading}
             isFirst={true}
           />
+          <TouchableOpacity style={[ios.row, ios.rowBorder]} onPress={openTimePicker} activeOpacity={0.7}>
+            <View style={[ios.iconWrap, { backgroundColor: 'rgba(255,149,0,0.15)' }]}>
+              <Text style={ios.iconText}>⏰</Text>
+            </View>
+            <View style={ios.rowContent}>
+              <Text style={ios.rowLabel}>Reminder time</Text>
+              <Text style={ios.rowSub}>{isPro ? 'Your daily check-in time' : 'Pro · choose your own time'}</Text>
+            </View>
+            <Text style={[ios.rowSub, { fontSize: 15 }]}>
+              {isPro ? formatTime(reminderTime.h, reminderTime.m) : '✦'}
+            </Text>
+          </TouchableOpacity>
           <SettingsToggleRow
             icon="🔊"
             iconBg="rgba(88,86,214,0.15)"
@@ -450,6 +515,49 @@ export default function ProfileScreen({ navigation }) {
           />
           <FoundersNote visible={newsletterSubscribed} />
         </View>
+
+        <Modal visible={timeModal} transparent animationType="fade" onRequestClose={() => setTimeModal(false)}>
+          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+            <View style={{ backgroundColor: COLORS.bgCard, borderRadius: 24, padding: 24, width: '100%', maxWidth: 340, alignItems: 'center' }}>
+              <Text style={{ fontFamily: 'PlayfairDisplay_700Bold', fontSize: 20, color: COLORS.text, marginBottom: 4 }}>
+                Reminder time
+              </Text>
+              <Text style={{ fontFamily: 'Lato_400Regular', fontSize: 13, color: COLORS.textSoft, marginBottom: 16, textAlign: 'center' }}>
+                When should Lumaid check in on you each evening?
+              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20 }}>
+                <TimeStepper
+                  value={String(draftTime.h % 12 === 0 ? 12 : draftTime.h % 12)}
+                  onUp={() => stepHour(1)}
+                  onDown={() => stepHour(-1)}
+                />
+                <Text style={{ fontFamily: 'PlayfairDisplay_700Bold', fontSize: 34, color: COLORS.muted }}>:</Text>
+                <TimeStepper
+                  value={String(draftTime.m).padStart(2, '0')}
+                  onUp={() => stepMinute(15)}
+                  onDown={() => stepMinute(-15)}
+                />
+                <Text style={{ fontFamily: 'Lato_700Bold', fontSize: 18, color: COLORS.accentDark, minWidth: 36 }}>
+                  {draftTime.h >= 12 ? 'PM' : 'AM'}
+                </Text>
+              </View>
+              <View style={{ flexDirection: 'row', gap: 12, marginTop: 20 }}>
+                <TouchableOpacity
+                  onPress={() => setTimeModal(false)}
+                  style={{ paddingVertical: 12, paddingHorizontal: 24, borderRadius: 14, borderWidth: 1, borderColor: COLORS.border }}
+                >
+                  <Text style={{ fontFamily: 'Lato_700Bold', fontSize: 15, color: COLORS.textSoft }}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={saveReminderTime}
+                  style={{ paddingVertical: 12, paddingHorizontal: 28, borderRadius: 14, backgroundColor: COLORS.accentDark }}
+                >
+                  <Text style={{ fontFamily: 'Lato_700Bold', fontSize: 15, color: COLORS.white }}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
 
         <Text style={styles.versionText}>Lumaid v1.0.0</Text>
 
