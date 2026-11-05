@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { AppState, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { COLORS } from '../constants';
 import { isProUser } from '../lib/purchases';
 
@@ -13,6 +13,15 @@ export default function WeeklyRecapCard({ refreshKey }) {
   const focused = useIsFocused();
   const [count, setCount] = useState(0);
   const [pro, setPro] = useState(false);
+  const [appTick, setAppTick] = useState(0);
+
+  // Re-check Pro status when the app comes back to the foreground (e.g. after a subscription expires)
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') setAppTick(t => t + 1);
+    });
+    return () => sub.remove();
+  }, []);
 
   useEffect(() => {
     if (!focused) return;
@@ -25,9 +34,11 @@ export default function WeeklyRecapCard({ refreshKey }) {
       } catch {}
       try { setPro(await isProUser()); } catch {}
     })();
-  }, [focused, refreshKey]);
+  }, [focused, refreshKey, appTick]);
 
   const ready = count >= NEEDED;
+  // The weekly recap moment is Sunday evening (matches the notification); Monday still counts as "ready"
+  const isRecapDay = [0, 1].includes(new Date().getDay());
 
   return (
     <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('WeeklyRecap')} activeOpacity={0.85}>
@@ -35,12 +46,16 @@ export default function WeeklyRecapCard({ refreshKey }) {
         <Text style={styles.label}>{pro ? '' : '🔒 '}WEEKLY RECAP</Text>
         <Text style={styles.arrow}>→</Text>
       </View>
-      <Text style={styles.title}>{ready ? 'Your week is ready' : 'Your week, in one card'}</Text>
+      <Text style={styles.title}>{ready ? (isRecapDay ? 'Your week is ready' : 'Your week so far') : 'Your week, in one card'}</Text>
       {ready ? (
         <Text style={styles.sub}>
-          {pro
-            ? 'Your mood story, a note from your companion, and a gentle plan for next week.'
-            : 'See your week as a shareable card. Unlock the full reflection with Pro.'}
+          {isRecapDay
+            ? (pro
+              ? 'Your mood story, a note from your companion, and a gentle plan for next week.'
+              : 'See your week as a shareable card. Unlock the full reflection with Pro.')
+            : (pro
+              ? 'A peek at your mood story so far. Your full recap lands Sunday.'
+              : 'A peek at your week so far. Unlock the full reflection with Pro.')}
         </Text>
       ) : (
         <>

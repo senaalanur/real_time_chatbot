@@ -83,6 +83,7 @@ export default function ChatScreen({ route, navigation }) {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [speakingId, setSpeakingId] = useState(null);
+  const [dailyUsed, setDailyUsed] = useState(null); // null = hidden (Pro or unknown)
   const [voicePaused, setVoicePaused] = useState(false);
   useEffect(() => subscribeVoiceState(st => setVoicePaused(st.paused)), []);
 
@@ -379,10 +380,35 @@ export default function ChatScreen({ route, navigation }) {
         p_user_id: user.id,
         p_date: today,
       });
+      refreshDailyUsage();
     } catch (err) {
       console.warn('[LUMAID] incrementDailyUsage failed:', err.message);
     }
   };
+
+  // Free-tier counter shown in the header: how many of today's messages are left
+  const refreshDailyUsage = async () => {
+    try {
+      if (await isProUser()) { setDailyUsed(null); return; }
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data, error } = await supabase
+        .from('daily_usage')
+        .select('message_count')
+        .eq('user_id', user.id)
+        .eq('usage_date', getLocalDateString())
+        .maybeSingle();
+      if (!error) setDailyUsed(data?.message_count ?? 0);
+    } catch (err) {
+      console.warn('[LUMAID] refreshDailyUsage failed:', err.message);
+    }
+  };
+
+  useEffect(() => {
+    refreshDailyUsage();
+    const unsub = navigation.addListener('focus', refreshDailyUsage);
+    return unsub;
+  }, [navigation]);
 
   const sendMessage = async (textOverride = null, msgsOverride = null) => {
     const text = (textOverride ?? input).trim();
@@ -446,14 +472,17 @@ export default function ChatScreen({ route, navigation }) {
       if (userMsgCount % 3 === 0) updateMemory(final);
 
     } catch (err) {
+      const isRateLimited = err.message?.includes('Too many messages');
       const isNetworkError =
         err.message?.includes('Network request failed') ||
         err.message?.includes('fetch');
       setMessages(prev => [...prev, {
         id: `err_${Date.now()}`, role: 'assistant', isError: true, timestamp: Date.now(),
-        text: isNetworkError
-          ? "Can't reach the server. Check your connection."
-          : "Something went wrong. Try again?",
+        text: isRateLimited
+          ? "You're sending messages quickly. Give it a little while and try again."
+          : isNetworkError
+            ? "Can't reach the server. Check your connection."
+            : "Something went wrong. Try again?",
       }]);
     } finally {
       setIsLoading(false);
@@ -670,8 +699,8 @@ export default function ChatScreen({ route, navigation }) {
           <View>
             <Text style={styles.headerName}>{activeName}</Text>
             <Text style={styles.headerSub}>
-              {sessionLatencies.length > 0
-                ? `${sessionLatencies.length} messages today`
+              {dailyUsed !== null
+                ? `${Math.max(0, DAILY_FREE_MESSAGE_LIMIT - dailyUsed)} of ${DAILY_FREE_MESSAGE_LIMIT} messages left today`
                 : activeTagline}
             </Text>
           </View>

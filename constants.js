@@ -142,7 +142,7 @@ export async function callClaude(messages, soulId = 'zen', memory = '') {
   const latency = Date.now() - start;
 
   if (!res.ok) {
-    console.error('Backend error:', data);
+    console.warn('Backend error:', data);
     throw new Error(data?.error ?? 'API error');
   }
 

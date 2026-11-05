@@ -2,6 +2,7 @@ import { Lato_400Regular, Lato_700Bold } from '@expo-google-fonts/lato';
 import { PlayfairDisplay_700Bold } from '@expo-google-fonts/playfair-display';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFonts } from 'expo-font';
+import { useIsFocused } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 import * as Notifications from 'expo-notifications';
 import React, { useEffect, useRef, useState } from 'react';
@@ -152,6 +153,18 @@ export default function ProfileScreen({ navigation }) {
   const [reminderTime, setReminderTime] = useState({ h: 20, m: 0 });
   const [draftTime, setDraftTime] = useState({ h: 20, m: 0 });
   const [timeModal, setTimeModal] = useState(false);
+
+  // Refresh Pro status when returning from the Paywall or from the background
+  const screenFocused = useIsFocused();
+  useEffect(() => {
+    if (!screenFocused) return;
+    const refresh = () => { isProUser().then(setIsPro); };
+    refresh();
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active') refresh();
+    });
+    return () => sub.remove();
+  }, [screenFocused]);
 
   useEffect(() => {
     isProUser().then(setIsPro);

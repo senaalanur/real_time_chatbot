@@ -8,6 +8,8 @@ import { useFonts } from 'expo-font';
 import * as Haptics from 'expo-haptics';
 import * as MediaLibrary from 'expo-media-library';
 import React, { useEffect, useRef, useState } from 'react';
+import { useIsFocused } from '@react-navigation/native';
+import { AppState } from 'react-native';
 import {
   ActivityIndicator,
   Alert,
@@ -156,6 +158,22 @@ export default function WeeklyRecapScreen({ navigation }) {
     setAiRecap(r);
     setAiLoading(false);
   };
+
+  // When Pro status changes (bought on the Paywall, or expired), reload so the right view shows
+  const recapFocused = useIsFocused();
+  const lastProRef = useRef(null);
+  useEffect(() => {
+    const check = async () => {
+      const pro = await isProUser();
+      if (lastProRef.current !== null && pro !== lastProRef.current) loadWeekData();
+      lastProRef.current = pro;
+    };
+    if (recapFocused) check();
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && recapFocused) check();
+    });
+    return () => sub.remove();
+  }, [recapFocused]);
 
   const loadWeekData = async () => {
     const pro = await isProUser();
