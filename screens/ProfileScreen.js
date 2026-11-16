@@ -330,10 +330,13 @@ export default function ProfileScreen({ navigation }) {
   };
 
   // ── Delete account — total wipeout ────────────────────────────────────────
-  const handleDeleteAccount = () => {
+  const handleDeleteAccount = async () => {
+    let pro = false;
+    try { pro = await isProUser(); } catch {}
     Alert.alert(
       'Delete Account',
-      'This will permanently delete your account and ALL your data. This cannot be undone.',
+      'This will permanently delete your account and ALL your data. This cannot be undone.' +
+        (pro ? '\n\nYour Pro subscription is billed by Apple and will NOT be cancelled automatically. Cancel it in your Apple ID settings (Settings > your name > Subscriptions) to avoid further charges.' : ''),
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -341,6 +344,7 @@ export default function ProfileScreen({ navigation }) {
           onPress: async () => {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
             setDeleteLoading(true);
+            let serverFailed = false;
             try {
               // Step 1: Get session token
               const { data: { session } } = await supabase.auth.getSession();
@@ -353,20 +357,26 @@ export default function ProfileScreen({ navigation }) {
                   headers: { Authorization: `Bearer ${session.access_token}` },
                 });
                 console.log('Edge fn response:', JSON.stringify(fnData), JSON.stringify(fnError));
-                if (fnError) console.warn('Edge fn error (continuing anyway):', fnError.message);
+                if (fnError) throw new Error(fnError.message);
               } else {
                 console.log('No session — skipping edge fn, wiping local only');
               }
             } catch (err) {
-              // Don't block the wipe even if server call fails
               console.warn('Delete account server error:', err.message);
-            } finally {
-              // Step 3: Always wipe client state no matter what
-              try { await supabase.auth.signOut(); } catch {}
-              await nukeLocalStorage();
-              setDeleteLoading(false);
-              navigation.replace('Auth');
+              serverFailed = true;
             }
+
+            if (serverFailed) {
+              setDeleteLoading(false);
+              Alert.alert('Could not delete account', 'Something went wrong, so your account was not deleted. Please check your connection and try again.');
+              return;
+            }
+
+            // Step 3: server deletion succeeded, wipe client state
+            try { await supabase.auth.signOut(); } catch {}
+            await nukeLocalStorage();
+            setDeleteLoading(false);
+            navigation.replace('Auth');
           },
         },
       ]

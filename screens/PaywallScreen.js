@@ -4,7 +4,7 @@ import { useFonts } from 'expo-font';
 import * as Haptics from 'expo-haptics';
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator, Alert, ScrollView, StyleSheet,
+  ActivityIndicator, Alert, Linking, ScrollView, StyleSheet,
   Text, TouchableOpacity, View,
 } from 'react-native';
 import { COLORS } from '../constants';
@@ -16,6 +16,9 @@ const FEATURES = [
   'Weekly emotional recap',
   'Custom reminder times',
 ];
+
+const TERMS_URL = 'https://lumaid-legal.vercel.app';
+const PRIVACY_URL = 'https://lumaid-legal.vercel.app';
 
 export default function PaywallScreen({ navigation }) {
   const [fontsLoaded] = useFonts({ PlayfairDisplay_700Bold, Lato_400Regular, Lato_700Bold });
@@ -39,10 +42,12 @@ export default function PaywallScreen({ navigation }) {
     const result = await purchasePackage(pkg);
     setPurchasingId(null);
 
-    if (result.success) {
+    if (result.success && result.isPro) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert('Welcome to Lumaid Pro', 'Your subscription is active. Enjoy unlimited chats and more.');
       navigation.goBack();
+    } else if (result.success) {
+      Alert.alert('Almost there', 'Your purchase went through, but Pro is still activating. Try Restore Purchases in a moment.');
     } else if (!result.cancelled) {
       Alert.alert('Purchase failed', result.error || 'Something went wrong. Please try again.');
     }
@@ -91,7 +96,12 @@ export default function PaywallScreen({ navigation }) {
         {loading ? (
           <ActivityIndicator color={COLORS.accentDark} style={{ marginTop: 32 }} />
         ) : packages.length === 0 ? (
-          <Text style={styles.emptyText}>Plans aren't available right now. Please try again later.</Text>
+          <View>
+            <Text style={styles.emptyText}>Plans aren&apos;t available right now. Please try again later.</Text>
+            <TouchableOpacity onPress={loadOfferings} style={styles.restoreBtn}>
+              <Text style={styles.restoreText}>Try again</Text>
+            </TouchableOpacity>
+          </View>
         ) : (
           <View style={styles.plans}>
             {yearly && (
@@ -136,6 +146,21 @@ export default function PaywallScreen({ navigation }) {
             ? <ActivityIndicator color={COLORS.muted} size="small" />
             : <Text style={styles.restoreText}>Restore Purchases</Text>}
         </TouchableOpacity>
+
+        <Text style={styles.legalText}>
+          Payment is charged to your Apple ID at confirmation of purchase. Subscriptions renew
+          automatically unless cancelled at least 24 hours before the end of the current period.
+          Manage or cancel anytime in your Apple ID settings.
+        </Text>
+        <View style={styles.legalLinks}>
+          <TouchableOpacity onPress={() => Linking.openURL(TERMS_URL)}>
+            <Text style={styles.restoreText}>Terms of Use</Text>
+          </TouchableOpacity>
+          <Text style={styles.legalText}>  ·  </Text>
+          <TouchableOpacity onPress={() => Linking.openURL(PRIVACY_URL)}>
+            <Text style={styles.restoreText}>Privacy Policy</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </View>
   );
@@ -196,4 +221,6 @@ const styles = StyleSheet.create({
   },
   restoreBtn: { alignItems: 'center', paddingVertical: 12 },
   restoreText: { fontFamily: 'Lato_400Regular', fontSize: 13, color: COLORS.muted, textDecorationLine: 'underline' },
+  legalText: { fontFamily: 'Lato_400Regular', fontSize: 11, color: COLORS.muted, textAlign: 'center', lineHeight: 16, marginTop: 8 },
+  legalLinks: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 8 },
 });
