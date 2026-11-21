@@ -265,9 +265,13 @@ export default function ChatScreen({ route, navigation }) {
   // Update memory every 3 user messages — soul-agnostic, persists across switches
   const updateMemory = async (currentMessages) => {
     try {
+      const { data: { session: memSession } } = await supabase.auth.getSession();
       const res = await fetch(`${BACKEND_URL}/memory/summarize`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(memSession?.access_token ? { Authorization: `Bearer ${memSession.access_token}` } : {}),
+        },
         body: JSON.stringify({
           recentMessages: currentMessages.slice(-10),
           existingMemory: memory,
@@ -472,13 +476,16 @@ export default function ChatScreen({ route, navigation }) {
       if (userMsgCount % 3 === 0) updateMemory(final);
 
     } catch (err) {
-      const isRateLimited = err.message?.includes('Too many messages');
+      const isDailyCap = err.message?.includes('try again tomorrow');
+      const isRateLimited = !isDailyCap && err.message?.includes('Too many messages');
       const isNetworkError =
         err.message?.includes('Network request failed') ||
         err.message?.includes('fetch');
       setMessages(prev => [...prev, {
         id: `err_${Date.now()}`, role: 'assistant', isError: true, timestamp: Date.now(),
-        text: isRateLimited
+        text: isDailyCap
+          ? "You've reached today's message limit. Your messages reset tomorrow."
+          : isRateLimited
           ? "You're sending messages quickly. Give it a little while and try again."
           : isNetworkError
             ? "Can't reach the server. Check your connection."

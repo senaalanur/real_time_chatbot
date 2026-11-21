@@ -1,3 +1,4 @@
+import { supabase } from './lib/supabase';
 // ── Design Tokens — Lumaid Light & Airy ──────────────────────────────────────
 export const COLORS = {
   // Backgrounds
@@ -132,9 +133,16 @@ export async function callClaude(messages, soulId = 'zen', memory = '') {
   ];
 
   const start = Date.now();
+  // Send the user's session token so the server can apply per-user limits
+  const headers = { 'Content-Type': 'application/json' };
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
+  } catch {}
+
   const res = await fetch(`${BACKEND_URL}/chat`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({ messages: apiMessages }),
   });
 
