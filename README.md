@@ -105,3 +105,32 @@ The backend base URL is defined in the source (search for `BACKEND_URL`). Backen
 - Verify Pro entitlement on the server for recap requests.
 - Weekly recap caching to reduce repeat model calls.
 - Pause and resume for voice playback on Android.
+
+## How to View the Front End
+
+- **Live app (v1.0.0):** [Lumaid on the App Store](https://apps.apple.com/app/lumaid/id6773148492)
+- **V2 build (TestFlight):** <TESTFLIGHT LINK>
+- **Demo video:** <VIDEO LINK>
+
+> Note: the App Store version is v1.0.0. The weekly recap, Pro tier and text-to-speech are V2 features that appear only in the TestFlight build and the screenshots below.
+
+## Screenshots
+
+![Lumaid screen: img_1579](docs/screenshots/img_1579.png)
+
+![Lumaid screen: img_1580](docs/screenshots/img_1580.png)
+
+![Lumaid screen: img_1583](docs/screenshots/img_1583.jpg)
+
+![Lumaid screen: img_1584](docs/screenshots/img_1584.png)
+
+![Lumaid screen: img_1585](docs/screenshots/img_1585.png)
+
+![Lumaid screen: img_1586](docs/screenshots/img_1586.png)
+
+![Lumaid screen: img_1587](docs/screenshots/img_1587.png)
+
+![Lumaid screen: img_1588](docs/screenshots/img_1588.png)
+
+![Lumaid screen: img_1598-2](docs/screenshots/img_1598-2.jpg)
+
